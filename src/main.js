@@ -33,12 +33,14 @@ const CHARACTERS = [
   { id: 'elf', name: "Elven Archer", visual: "/chars/elf.png", rarity: "Rare", chance: 200, color: "#60a5fa", value: 100, hp: 35, str: 15, anim: 'anim-float' },
   { id: 'kraken', name: "Kraken Hatchling", visual: "/chars/kraken.png", rarity: "Rare", chance: 250, color: "#3b82f6", value: 120, hp: 45, str: 22, anim: 'anim-breathe' },
   { id: 'vulcan_golem', name: "Vulcan Golem", visual: "/chars/vulcan_golem.png", rarity: "Rare", chance: 300, color: "#f97316", value: 130, hp: 100, str: 18, anim: 'anim-shake' },
+  { id: 'vulcan_golem', name: "Vulcan Golem", visual: "/chars/vulcan_golem.png", rarity: "Rare", chance: 300, color: "#f97316", value: 130, hp: 100, str: 18, anim: 'anim-shake' },
   { id: 'assassin', name: "Shadow Assassin", visual: "/chars/assassin.png", rarity: "Rare", chance: 350, color: "#60a5fa", value: 150, hp: 30, str: 40, anim: 'anim-float' },
   { id: 'knight', name: "Noble Knight", visual: "/chars/knight.png", rarity: "Rare", chance: 500, color: "#3b82f6", value: 250, hp: 80, str: 20, anim: 'anim-float' },
   { id: 'spectral_knight', name: "Spectral Knight", visual: "/chars/knight.png", cssFilter: "hue-rotate(120deg) saturate(1.5) opacity(0.8)", rarity: "Epic", chance: 1500, color: "#c084fc", value: 800, hp: 100, str: 45, anim: 'anim-float' },
   { id: 'vampire', name: "Vampire Lord", visual: "/chars/vampire.png", rarity: "Epic", chance: 1800, color: "#ef4444", value: 900, hp: 100, str: 80, anim: 'anim-float' },
   { id: 'mage', name: "Dark Mage", visual: "/chars/mage.png", rarity: "Epic", chance: 2000, color: "#c084fc", value: 1000, hp: 60, str: 50, anim: 'anim-float' },
   { id: 'necromancer', name: "Necromancer", visual: "/chars/necromancer.png", rarity: "Epic", chance: 2200, color: "#a855f7", value: 1100, hp: 75, str: 65, anim: 'anim-float' },
+  { id: 'storm_summoner', name: "Storm Summoner", visual: "/chars/storm_summoner.png", rarity: "Epic", chance: 2500, color: "#06b6d4", value: 1250, hp: 70, str: 55, anim: 'anim-float' },
   { id: 'storm_summoner', name: "Storm Summoner", visual: "/chars/storm_summoner.png", rarity: "Epic", chance: 2500, color: "#06b6d4", value: 1250, hp: 70, str: 55, anim: 'anim-float' },
   { id: 'dark_elf', name: "Dark Elf Ranger", visual: "/chars/elf.png", cssFilter: "hue-rotate(240deg) saturate(1.5) brightness(0.8)", rarity: "Epic", chance: 2800, color: "#a855f7", value: 1400, hp: 85, str: 55, anim: 'anim-float' },
   { id: 'paladin', name: "Holy Paladin", visual: "/chars/paladin.png", rarity: "Epic", chance: 3500, color: "#a855f7", value: 1800, hp: 200, str: 60, anim: 'anim-shake' },
@@ -50,6 +52,7 @@ const CHARACTERS = [
   { id: 'phoenix', name: "Fiery Phoenix", visual: "/chars/phoenix.png", rarity: "Legendary", chance: 50000, color: "#f59e0b", value: 25000, hp: 300, str: 350, glow: "0 0 25px #f59e0b", anim: 'anim-pulse-glow' },
   { id: 'archangel', name: "Archangel", visual: "/chars/archangel.png", rarity: "Legendary", chance: 100000, color: "#f59e0b", value: 50000, hp: 400, str: 250, glow: "0 0 30px #f59e0b", anim: 'anim-pulse-glow' },
   { id: 'void_mage', name: "Void Mage", visual: "/chars/mage.png", cssFilter: "invert(1) hue-rotate(180deg) contrast(1.5)", rarity: "Mythic", chance: 300000, color: "#ef4444", value: 150000, hp: 800, str: 600, glow: "0 0 30px #a855f7", anim: 'anim-shake' },
+  { id: 'void_stalker', name: "Void Stalker", visual: "/chars/void_stalker.png", rarity: "Mythic", chance: 350000, color: "#a78bfa", value: 180000, hp: 1000, str: 650, glow: "0 0 35px #a78bfa", anim: 'anim-shake' },
   { id: 'void_stalker', name: "Void Stalker", visual: "/chars/void_stalker.png", rarity: "Mythic", chance: 350000, color: "#a78bfa", value: 180000, hp: 1000, str: 650, glow: "0 0 35px #a78bfa", anim: 'anim-shake' },
   { id: 'time_weaver', name: "Time Weaver", visual: "/chars/time_weaver.png", rarity: "Mythic", chance: 400000, color: "#60a5fa", value: 200000, hp: 1200, str: 700, glow: "0 0 35px #60a5fa", anim: 'anim-pulse-glow' },
   { id: 'abyssal', name: "Abyssal Lord", visual: "/chars/abyssal.png", rarity: "Mythic", chance: 500000, color: "#ef4444", value: 250000, hp: 1500, str: 800, glow: "0 0 40px #ef4444", anim: 'anim-shake' },
@@ -101,6 +104,14 @@ const RELICS = [
   { id: 'amulet', name: "Amulet of Fate", desc: "Global: +5% Luck per level", equipDesc: "Equip: +50% Hero Vitality", type: "luck", mult: 0.05, equipPower: 0, equipHp: 0.5 },
   { id: 'chalice', name: "Chalice of Greed", desc: "Global: +5% Gold Income per level", equipDesc: "Equip: +25% Power & Vitality", type: "gold", mult: 0.05, equipPower: 0.25, equipHp: 0.25 }
 ];
+
+// --- PATH REPAIR FOR SUBFOLDER HOSTING ---
+CHARACTERS.forEach(c => {
+  if (c.visual && c.visual.startsWith('/')) c.visual = c.visual.substring(1);
+});
+DUNGEON_BOSSES.forEach(b => {
+  if (b.visual && b.visual.startsWith('/')) b.visual = b.visual.substring(1);
+});
 
 // --- GAME STATE ---
 const getInitialState = () => ({
