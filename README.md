@@ -56,3 +56,32 @@ npm run build
 
 ## 📜 Credits & License
 Created by [VictorVB18](https://github.com/VictorVB18). Built with Vite, modern Vanilla JS, dynamic audio synthesis, and custom premium pixel-art assets.
+
+---
+
+## 💾 How Game Saves Work
+
+Your journey is perfectly safe! The game automatically saves your progress (Gold, Summons, Vanguard, Upgrades, Quests, Relics, and Prestige) directly to your browser's **Local Storage** in real-time.
+- This works **both online** (on the GitHub Pages link) and **locally** (on your computer).
+- You can close the tab or turn off your computer, and your progress will be waiting for you when you return!
+- If you play locally, your progress is tied to your local browser slot.
+
+---
+
+## 🔄 How to Update Your Local Copy (Fast & Easy)
+
+Since we are actively updating the game with new features and characters, you **do not** need to re-install everything when there is a new update! 
+
+Once you have done the initial installation, updating and playing takes less than 5 seconds:
+
+### To get new updates and play:
+1. Open your terminal in the project folder.
+2. Pull the latest updates:
+   ```bash
+   git pull
+   ```
+3. Start the game instantly:
+   ```bash
+   npm run dev
+   ```
+*(No need to run `npm install` again unless we introduce new external packages!)*
