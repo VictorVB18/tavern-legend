@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fantasy Character RNG</title>
+  </head>
+  <body>
+    <!-- Save Slots Menu (Initial Screen) -->
+    <div id="save-slots-menu" class="modal-overlay">
+      <div class="modal-content parchment-modal" style="text-align: center;">
+        <h2>Select Your Journey</h2>
+        <div class="save-slots-container" style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 2rem;">
+          <div class="save-slot" data-slot="1">
+            <h3>Save File 1</h3>
+            <p class="slot-info">Empty</p>
+            <button class="btn btn-primary play-slot-btn">Play</button>
+            <button class="btn btn-danger delete-slot-btn" style="display: none; padding: 0.5rem;">Delete</button>
+          </div>
+          <div class="save-slot" data-slot="2">
+            <h3>Save File 2</h3>
+            <p class="slot-info">Empty</p>
+            <button class="btn btn-primary play-slot-btn">Play</button>
+            <button class="btn btn-danger delete-slot-btn" style="display: none; padding: 0.5rem;">Delete</button>
+          </div>
+          <div class="save-slot" data-slot="3">
+            <h3>Save File 3</h3>
+            <p class="slot-info">Empty</p>
+            <button class="btn btn-primary play-slot-btn">Play</button>
+            <button class="btn btn-danger delete-slot-btn" style="display: none; padding: 0.5rem;">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Game (Hidden initially) -->
+    <div id="app" style="display: none;">
+      <header class="header">
+        <h1>Tavern of Legends</h1>
+        <div class="nav-buttons">
+          <button id="switch-save-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem;">Main Menu</button>
+          <button id="save-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem;">Save Game</button>
+          <button id="open-index-btn" class="btn btn-nav">Hero Index</button>
+          <button id="open-quests-btn" class="btn btn-nav">Guild Quests</button>
+          <button id="open-rules-btn" class="btn btn-nav">Tome of Rules</button>
+          <button id="open-relics-btn" class="btn btn-nav" style="color: #c084fc;">Artifacts</button>
+          <button id="open-boss-btn" class="btn btn-nav btn-danger">The Dungeon</button>
+          <button id="rebirth-btn" class="btn btn-nav" style="display: none; background: linear-gradient(#b8860b, #8b5a2b); border-color: #f59e0b;">Prestige</button>
+          <button id="toggle-music-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem;">Play Music</button>
+          <button id="next-track-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem; display: none;">Next Track</button>
+        </div>
+        <div class="stats">
+          <div class="stat-box">
+            <span class="stat-label">Gold Coins</span>
+            <span id="coins-display" class="stat-value">0</span>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Rolls</div>
+            <div class="stat-value" id="rolls-display">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Current Luck</div>
+            <div class="stat-value" id="luck-display">1.0x</div>
+          </div>
+          <div class="stat-box" id="prestige-box" style="display: none;">
+            <div class="stat-label">Prestige</div>
+            <div class="stat-value" id="prestige-display">0</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="rolling-area">
+          <div class="character-display-container">
+            <div id="current-character-display" class="character-display">
+              <div class="visual-wrapper">
+                <img id="char-visual" class="character-visual" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Summoned Character" style="opacity: 0;" />
+                <div class="visual-placeholder">?</div>
+              </div>
+              <div class="char-info">
+                <h2 id="char-name" class="character-name">Awaiting Summon</h2>
+                <div id="char-rarity" class="character-rarity">Roll the dice of fate</div>
+                
+                <div id="char-stats" class="character-stats" style="display: none;">
+                  <div class="stat-pill hp">
+                    <span>Vitality</span>
+                    <span id="char-hp">0</span>
+                  </div>
+                  <div class="stat-pill str">
+                    <span>Power</span>
+                    <span id="char-str">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button id="roll-btn" class="btn btn-primary">Summon Hero</button>
+            <button id="auto-roll-btn" class="btn btn-secondary" style="display: none;">Auto-Summon: OFF</button>
+          </div>
+          <div class="progress-bar-container">
+            <div id="cooldown-bar" class="progress-bar"></div>
+          </div>
+          
+          <div id="auto-sell-config" class="auto-sell-config" style="display: none;">
+            <h3 style="color: #b8860b; font-family: 'MedievalSharp', cursive; margin-bottom: 0.5rem;">Auto-Dismiss Filters</h3>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+              <label><input type="checkbox" id="auto-sell-Common"> Common</label>
+              <label><input type="checkbox" id="auto-sell-Uncommon"> Uncommon</label>
+              <label><input type="checkbox" id="auto-sell-Rare"> Rare</label>
+              <label><input type="checkbox" id="auto-sell-Epic"> Epic</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div class="panel army-panel">
+            <h2>Your Vanguard</h2>
+            <div class="dismiss-toggles">
+              <span style="font-family: 'Marcellus SC', serif; color: var(--text-secondary); font-size: 0.9rem;">Dismiss:</span>
+              <button class="btn-toggle active" data-mult="1">1x</button>
+              <button class="btn-toggle" data-mult="5">5x</button>
+              <button class="btn-toggle" data-mult="10">10x</button>
+              <button class="btn-toggle" data-mult="100">100x</button>
+              <button class="btn-toggle" data-mult="MAX">ALL</button>
+            </div>
+            <div id="army-list" class="army-list">
+              <!-- Characters injected via JS -->
+            </div>
+          </div>
+
+          <div class="panel upgrades-panel">
+            <h2>Mystic Upgrades</h2>
+            <div id="upgrades-list" class="upgrades-list">
+              <!-- Upgrades injected via JS -->
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <!-- Notification container -->
+      <div id="notification-container" class="notification-container"></div>
+    </div>
+
+    <!-- Modals -->
+    <div id="rules-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal">
+        <button class="close-modal" id="close-rules-btn">X</button>
+        <h2>The Tome of Knowledge</h2>
+        <div class="modal-body">
+          <h3>How to Play</h3>
+          <p>Click <strong>Summon Hero</strong> to roll the dice and recruit characters to your Vanguard. The rarity of the character determines their Vitality (HP), Power (STR), and value.</p>
+          
+          <h3>Ascension</h3>
+          <p>If you collect 10 duplicates of the exact same hero, an <strong>Ascend (10x)</strong> button will appear next to them in the Vanguard. Sacrificing 10 copies grants a permanent +1 Power boost to that hero class!</p>
+
+          <h3>Equipment & Artifacts</h3>
+          <p>Defeating dungeon bosses may reward you with Artifacts. Click the purple <strong>Equip Artifact</strong> button on any hero in your Vanguard to permanently assign an artifact and massively multiply their stats.</p>
+
+          <h3>Boss Fights</h3>
+          <p>Enter the <strong>Boss Lair</strong> and select up to 3 heroes from your Vanguard to face terrible foes. If your combined Power is high enough, you'll slay the boss and earn massive Gold bounties. If you lose, your heroes will safely retreat to fight another day.</p>
+          
+          <h3>Prestige (Rebirth)</h3>
+          <p>Once you defeat the Final Boss (Floor 7) or unlock 100% of the Hero Index, a hidden <strong>Prestige</strong> button will appear at the top. Prestiging wipes your current run but permanently doubles ALL future gold income globally!</p>
+
+          <h3>Rarity Table</h3>
+          <table class="rarity-table">
+            <thead>
+              <tr>
+                <th>Rarity</th>
+                <th>Chance (Base)</th>
+                <th>Aura Color</th>
+              </tr>
+            </thead>
+            <tbody id="rarity-table-body">
+              <!-- Injected via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="boss-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal">
+        <button class="close-modal" id="close-boss-btn">X</button>
+        <h2 class="danger-text" id="dungeon-title" style="color: #8b0000; text-shadow: none;">The Dungeon - Floor 1</h2>
+        <div class="modal-body boss-arena">
+          <div class="boss-display">
+            <img src="/chars/thief.png" id="boss-visual-img" class="boss-visual" />
+            <div class="boss-info">
+              <h3 id="boss-name-text" style="color: #8b0000; text-shadow: none;">Bandit King</h3>
+              <div id="boss-hp-text" class="stat-pill hp" style="margin: 0 auto; width: max-content;">500 Vitality</div>
+              <p style="color: #5c4033; margin-top: 5px; font-weight: bold;">Bounty: <span id="boss-reward-text" style="color: #b8860b;">500 Gold</span></p>
+            </div>
+          </div>
+
+          <div class="party-selection">
+            <h3 style="color: #3e2723;">Select Your Party (Max 3)</h3>
+            <p style="font-size: 0.9rem; color: #5c4033;">Select heroes from your Vanguard to fight.</p>
+            <div id="boss-party-list" class="boss-party-list">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+          <div class="battle-stats" style="background: rgba(139, 90, 43, 0.2); border: 2px solid var(--parchment-border); color: #3e2723;">
+            <div style="display: flex; flex-direction: column;">
+              <div class="party-total-str" style="color: #b8860b; text-shadow: 1px 1px #000;">Party Total Power: <span id="party-total-str">0</span></div>
+              <div style="font-family: 'MedievalSharp', cursive; font-size: 0.9rem; color: #8b0000; margin-top: 5px;">Required Power: <span id="boss-req-text">100</span></div>
+            </div>
+            <button id="start-fight-btn" class="btn btn-danger" disabled>Commence Battle</button>
+          </div>
+          
+          <div id="battle-log" class="battle-log" style="background: rgba(26, 18, 11, 0.9); border: 4px solid var(--parchment-border);"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="relics-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal">
+        <button class="close-modal" id="close-relics-btn">X</button>
+        <h2>Dungeon Artifacts</h2>
+        <div class="modal-body">
+          <p style="text-align: center; margin-bottom: 1rem;">Powerful relics recovered from defeated Dungeon Bosses.</p>
+          <div id="relics-list" class="quests-list">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="equip-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal">
+        <button class="close-modal" id="close-equip-btn">X</button>
+        <h2>Equip Artifact</h2>
+        <div class="modal-body">
+          <p style="text-align: center; margin-bottom: 1rem;">Assign an Artifact to <span id="equip-hero-name" style="color: #b8860b; font-weight: bold;">Hero</span> to permanently multiply their Base Power!</p>
+          <div id="equip-list" class="quests-list">
+            <!-- Injected via JS -->
+          </div>
+          
+          <h3 style="margin-top: 2rem;">Currently Equipped</h3>
+          <div id="equipped-list" style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; margin-top: 1rem;">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="index-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal">
+        <button class="close-modal" id="close-index-btn">X</button>
+        <h2>Hero Collection Index</h2>
+        <div class="modal-body">
+          <p style="text-align: center; margin-bottom: 1rem;">Unlock heroes by summoning them to reveal their true forms!</p>
+          <div id="index-grid" class="index-grid">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="quests-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal" style="width: 800px; max-width: 95vw; padding: 0; overflow: hidden;">
+        <button class="close-modal" id="close-quests-btn" style="z-index: 10;">X</button>
+        <div class="open-book">
+          <div class="book-page left-page" id="book-page-left">
+            <!-- Injected via JS -->
+          </div>
+          <div class="book-spine"></div>
+          <div class="book-page right-page" id="book-page-right">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+        <div class="book-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: var(--panel-bg); border-top: 4px solid var(--border-color);">
+          <button id="book-prev-btn" class="btn btn-secondary">Turn Left</button>
+          <span id="book-page-number" style="font-family: 'Marcellus SC', serif; color: var(--text-secondary); font-size: 1.2rem;">Page 1</span>
+          <button id="book-next-btn" class="btn btn-secondary">Turn Right</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Audio handled dynamically in JS -->
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
