@@ -105,12 +105,27 @@ const RELICS = [
   { id: 'chalice', name: "Chalice of Greed", desc: "Global: +5% Gold Income per level", equipDesc: "Equip: +25% Power & Vitality", type: "gold", mult: 0.05, equipPower: 0.25, equipHp: 0.25 }
 ];
 
+// --- ASSET URL RESOLVER ---
+const getAssetUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('data:')) return path;
+  
+  // Remove leading slash if present
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Get Vite's base URL (configured to '/tavern-legend/')
+  const base = import.meta.env.BASE_URL || '/';
+  
+  // Combine base and path safely
+  return base.endsWith('/') ? `${base}${cleanPath}` : `${base}/${cleanPath}`;
+};
+
 // --- PATH REPAIR FOR SUBFOLDER HOSTING ---
 CHARACTERS.forEach(c => {
-  if (c.visual && c.visual.startsWith('/')) c.visual = c.visual.substring(1);
+  if (c.visual) c.visual = getAssetUrl(c.visual);
 });
 DUNGEON_BOSSES.forEach(b => {
-  if (b.visual && b.visual.startsWith('/')) b.visual = b.visual.substring(1);
+  if (b.visual) b.visual = getAssetUrl(b.visual);
 });
 
 // --- GAME STATE ---
