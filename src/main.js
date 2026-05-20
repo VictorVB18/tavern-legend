@@ -348,6 +348,15 @@ function performRoll() {
   
   if (!document.hidden) {
     updateDisplay(char);
+    
+    // Trigger punchy card roll flash shake impact animation
+    const displayCard = document.getElementById('current-character-display');
+    if (displayCard) {
+      displayCard.classList.remove('roll-impact');
+      void displayCard.offsetWidth; // Force Reflow
+      displayCard.classList.add('roll-impact');
+    }
+    
     updateStats();
     if (armyChanged) {
       renderArmy();
@@ -1203,10 +1212,36 @@ document.getElementById('save-btn').addEventListener('click', () => {
   notify('Game Saved Successfully!', '#2e8b57');
 });
 
+function initEmbers() {
+  const container = document.getElementById('embers-container');
+  if (!container) return;
+  for (let i = 0; i < 25; i++) {
+    const ember = document.createElement('div');
+    ember.className = 'ember';
+    
+    const size = Math.random() * 8 + 4; // 4px to 12px
+    const left = Math.random() * 100; // 0% to 100%
+    const duration = Math.random() * 10 + 6; // 6s to 16s
+    const delay = Math.random() * 12; // 0s to 12s
+    const drift = (Math.random() * 100 - 50); // -50px to 50px
+    
+    ember.style.width = size + 'px';
+    ember.style.height = size + 'px';
+    ember.style.left = left + '%';
+    ember.style.animationDuration = duration + 's';
+    ember.style.animationDelay = '-' + delay + 's'; // Negative delay triggers immediately
+    ember.style.setProperty('--drift', drift + 'px');
+    
+    container.appendChild(ember);
+  }
+}
+
 // Start at Main Menu after pre-processing assets
 preprocessCharacterVisuals().then(() => {
+  initEmbers();
   loadSaveSlotsUI();
 }).catch(() => {
+  initEmbers();
   loadSaveSlotsUI();
 });
 
