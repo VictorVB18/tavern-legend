@@ -1155,7 +1155,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// --- IMAGE TRANSPARENCY PROCESSING ---
+// --- IMAGE TRANSPARENCY PROCESSING (FLOOD FILL KEYOUT) ---
 const makeImageTransparent = (src) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1168,6 +1168,8 @@ const makeImageTransparent = (src) => {
       ctx.drawImage(img, 0, 0);
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
+      const width = canvas.width;
+      const height = canvas.height;
       
       // Sample the top-left pixel
       const rBg = data[0], gBg = data[1], bBg = data[2], aBg = data[3];
@@ -1177,23 +1179,72 @@ const makeImageTransparent = (src) => {
         const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
         const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
         
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i], g = data[i+1], b = data[i+2];
+        let threshold = 55;
+        if (isWhiteBg) {
+          threshold = 135;
+        } else if (isBlackBg) {
+          threshold = 120;
+        }
+
+        // Pre-allocate visited and queue arrays for performance
+        const visited = new Uint8Array(width * height);
+        const queue = new Int32Array(width * height);
+        let head = 0;
+        let tail = 0;
+
+        // Helper to add a pixel to the BFS queue
+        const enqueue = (x, y) => {
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            const idx = y * width + x;
+            if (visited[idx] === 0) {
+              visited[idx] = 1;
+              queue[tail++] = idx;
+            }
+          }
+        };
+
+        // Initialize the BFS from all border pixels
+        for (let x = 0; x < width; x++) {
+          enqueue(x, 0);
+          enqueue(x, height - 1);
+        }
+        for (let y = 0; y < height; y++) {
+          enqueue(0, y);
+          enqueue(width - 1, y);
+        }
+
+        // BFS flood fill
+        while (head < tail) {
+          const idx = queue[head++];
+          const x = idx % width;
+          const y = Math.floor(idx / width);
+          
+          const i = idx * 4;
+          const r = data[i];
+          const g = data[i+1];
+          const b = data[i+2];
+          const a = data[i+3];
+          
+          // Check if this pixel matches the background color
           const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
           
-          let threshold = 55;
-          if (isWhiteBg) {
-            threshold = 135;
-          } else if (isBlackBg) {
-            threshold = 120;
+          let isMatch = distance < threshold;
+          if (!isMatch && isWhiteBg && r > 238 && g > 238 && b > 238) {
+            isMatch = true;
           }
-          
-          if (distance < threshold) {
-            data[i+3] = 0;
-          } else if (isWhiteBg && r > 238 && g > 238 && b > 238) {
-            data[i+3] = 0;
-          } else if (isBlackBg && r < 18 && g < 18 && b < 18) {
-            data[i+3] = 0;
+          if (!isMatch && isBlackBg && r < 18 && g < 18 && b < 18) {
+            isMatch = true;
+          }
+
+          // If it matches or is already transparent, key it out and expand
+          if (isMatch || a === 0) {
+            data[i+3] = 0; // Key out alpha
+            
+            // Queue adjacent neighbors
+            enqueue(x + 1, y);
+            enqueue(x - 1, y);
+            enqueue(x, y + 1);
+            enqueue(x, y - 1);
           }
         }
       }
