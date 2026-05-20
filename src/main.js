@@ -1179,12 +1179,15 @@ const makeImageTransparent = (src) => {
         const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
         const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
         
+        // Use conservative thresholds to prevent leaking through anti-aliased outlines or light hair/skin
         let threshold = 55;
         if (isWhiteBg) {
-          threshold = 135;
+          threshold = 70; 
         } else if (isBlackBg) {
-          threshold = 120;
+          threshold = 60;
         }
+
+        console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg}) | threshold: ${threshold}`);
 
         // Pre-allocate visited and queue arrays for performance
         const visited = new Uint8Array(width * height);
@@ -1213,6 +1216,8 @@ const makeImageTransparent = (src) => {
           enqueue(width - 1, y);
         }
 
+        let pixelsKeyedOut = 0;
+
         // BFS flood fill
         while (head < tail) {
           const idx = queue[head++];
@@ -1227,18 +1232,14 @@ const makeImageTransparent = (src) => {
           
           // Check if this pixel matches the background color
           const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
-          
-          let isMatch = distance < threshold;
-          if (!isMatch && isWhiteBg && r > 238 && g > 238 && b > 238) {
-            isMatch = true;
-          }
-          if (!isMatch && isBlackBg && r < 18 && g < 18 && b < 18) {
-            isMatch = true;
-          }
+          const isMatch = distance < threshold;
 
           // If it matches or is already transparent, key it out and expand
           if (isMatch || a === 0) {
-            data[i+3] = 0; // Key out alpha
+            if (data[i+3] !== 0) {
+              data[i+3] = 0; // Key out alpha
+              pixelsKeyedOut++;
+            }
             
             // Queue adjacent neighbors
             enqueue(x + 1, y);
@@ -1247,6 +1248,7 @@ const makeImageTransparent = (src) => {
             enqueue(x, y - 1);
           }
         }
+        console.log(`[Transparency] Completed: ${src} | Keyed out ${pixelsKeyedOut} pixels.`);
       }
       ctx.putImageData(imgData, 0, 0);
       resolve(canvas.toDataURL());
