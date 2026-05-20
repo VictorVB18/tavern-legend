@@ -1182,12 +1182,12 @@ const makeImageTransparent = (src) => {
         // Use conservative thresholds to prevent leaking through anti-aliased outlines or light hair/skin
         let threshold = 55;
         if (isWhiteBg) {
-          threshold = 70; 
+          threshold = 60; // Very tight threshold to guarantee BFS never leaks inside
         } else if (isBlackBg) {
-          threshold = 60;
+          threshold = 50;
         }
 
-        console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg}) | threshold: ${threshold}`);
+        console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg})`);
 
         // Pre-allocate visited and queue arrays for performance
         const visited = new Uint8Array(width * height);
@@ -1216,9 +1216,9 @@ const makeImageTransparent = (src) => {
           enqueue(width - 1, y);
         }
 
-        let pixelsKeyedOut = 0;
+        let mainBgKeyedOut = 0;
 
-        // BFS flood fill
+        // BFS flood fill - Safe Main Background Keyout
         while (head < tail) {
           const idx = queue[head++];
           const x = idx % width;
@@ -1230,15 +1230,13 @@ const makeImageTransparent = (src) => {
           const b = data[i+2];
           const a = data[i+3];
           
-          // Check if this pixel matches the background color
           const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
           const isMatch = distance < threshold;
 
-          // If it matches or is already transparent, key it out and expand
           if (isMatch || a === 0) {
             if (data[i+3] !== 0) {
               data[i+3] = 0; // Key out alpha
-              pixelsKeyedOut++;
+              mainBgKeyedOut++;
             }
             
             // Queue adjacent neighbors
@@ -1248,7 +1246,53 @@ const makeImageTransparent = (src) => {
             enqueue(x, y - 1);
           }
         }
-        console.log(`[Transparency] Completed: ${src} | Keyed out ${pixelsKeyedOut} pixels.`);
+        
+        console.log(`[Transparency] BFS Phase: ${src} | Keyed out ${mainBgKeyedOut} core background pixels.`);
+
+        // Step 2: Morphological Erosion of light-colored/fuzzy fringes from the outside-in
+        const erosionThreshold = isWhiteBg ? 135 : 120;
+        let totalFringeErased = 0;
+        
+        for (let pass = 0; pass < 5; pass++) {
+          const toErase = [];
+          
+          for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+              const idx = y * width + x;
+              const i = idx * 4;
+              
+              // Only consider non-transparent pixels
+              if (data[i+3] > 0) {
+                // Check if adjacent to a transparent pixel (4-connectivity)
+                const upTrans = data[((y - 1) * width + x) * 4 + 3] === 0;
+                const downTrans = data[((y + 1) * width + x) * 4 + 3] === 0;
+                const leftTrans = data[(y * width + (x - 1)) * 4 + 3] === 0;
+                const rightTrans = data[(y * width + (x + 1)) * 4 + 3] === 0;
+                
+                if (upTrans || downTrans || leftTrans || rightTrans) {
+                  const r = data[i], g = data[i+1], b = data[i+2];
+                  const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
+                  
+                  // If it matches background loosely, mark it for erasure
+                  if (distance < erosionThreshold) {
+                    toErase.push(i);
+                  }
+                }
+              }
+            }
+          }
+          
+          // Apply erasure for this pass
+          toErase.forEach(i => {
+            data[i+3] = 0;
+            totalFringeErased++;
+          });
+          
+          // Stop early if no more fringes were erased in this pass
+          if (toErase.length === 0) break;
+        }
+        
+        console.log(`[Transparency] Erosion Phase: ${src} | Erased ${totalFringeErased} fringe pixels.`);
       }
       ctx.putImageData(imgData, 0, 0);
       resolve(canvas.toDataURL());
