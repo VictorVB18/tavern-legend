@@ -286,12 +286,15 @@ const getUpgradeCost = (id) => {
 
 let isRolling = false;
 let autoRollTimer = null;
+let lastRolledChar = null;
 let passiveIncomeTimer = setInterval(() => {
   state.lastSaveTime = Date.now();
   if (document.getElementById('app').style.display !== 'none' && state.upgrades.wealth > 0) {
     state.coins += state.upgrades.wealth * getSellMultiplier();
-    updateStats();
-    renderUpgrades(); // To update button disabled states
+    if (!document.hidden) {
+      updateStats();
+      renderUpgrades(); // To update button disabled states
+    }
   }
 }, 1000);
 
@@ -327,6 +330,7 @@ function performRoll() {
   
   state.unlocked[char.id] = true; // Unlock in Index
   
+  let armyChanged = false;
   // Auto-Dismiss logic
   if (state.upgrades.auto_sell_module > 0 && state.autoSellConfig[char.rarity]) {
     const sellValue = Math.floor(char.value * getSellMultiplier());
@@ -335,38 +339,55 @@ function performRoll() {
   } else {
     state.army[char.id] = (state.army[char.id] || 0) + 1;
     playSfx('summon_' + char.rarity.toLowerCase());
+    armyChanged = true;
   }
 
   saveState();
   
-  updateDisplay(char);
-  updateStats();
-  renderArmy();
-  
-  if (char.chance >= 2000) {
-    notify(`Summoned ${char.name}! (1 in ${char.chance})`, char.color.startsWith('linear') ? '#b8860b' : char.color);
-  }
-
   const cooldownMs = getCooldownMs();
-  const bar = document.getElementById('cooldown-bar');
-  const btn = document.getElementById('roll-btn');
-  btn.disabled = true;
   
-  bar.style.transition = 'none';
-  bar.style.transform = 'scaleX(0)';
-  void bar.offsetWidth;
-  bar.style.transition = `transform ${cooldownMs}ms linear`;
-  bar.style.transform = 'scaleX(1)';
-  
-  setTimeout(() => {
-    isRolling = false;
-    btn.disabled = false;
-  }, cooldownMs);
+  if (!document.hidden) {
+    updateDisplay(char);
+    updateStats();
+    if (armyChanged) {
+      renderArmy();
+    }
+    
+    if (char.chance >= 2000) {
+      notify(`Summoned ${char.name}! (1 in ${char.chance})`, char.color.startsWith('linear') ? '#b8860b' : char.color);
+    }
+    
+    const bar = document.getElementById('cooldown-bar');
+    const btn = document.getElementById('roll-btn');
+    btn.disabled = true;
+    
+    bar.style.transition = 'none';
+    bar.style.transform = 'scaleX(0)';
+    void bar.offsetWidth;
+    bar.style.transition = `transform ${cooldownMs}ms linear`;
+    bar.style.transform = 'scaleX(1)';
+    
+    setTimeout(() => {
+      isRolling = false;
+      btn.disabled = false;
+    }, cooldownMs);
+  } else {
+    lastRolledChar = char;
+    setTimeout(() => {
+      isRolling = false;
+    }, cooldownMs);
+  }
 }
 
 function toggleAutoRoll(forceState = null) {
   if (state.upgrades.auto === 0) return;
-  state.autoRollActive = forceState !== null ? forceState : !state.autoRollActive;
+  
+  const targetState = forceState !== null ? forceState : !state.autoRollActive;
+  
+  // Clear any existing timer to prevent duplicates
+  clearTimeout(autoRollTimer);
+  
+  state.autoRollActive = targetState;
   const btn = document.getElementById('auto-roll-btn');
   
   if (state.autoRollActive) {
@@ -376,7 +397,6 @@ function toggleAutoRoll(forceState = null) {
   } else {
     btn.classList.remove('active');
     btn.textContent = "Auto-Summon: OFF";
-    clearTimeout(autoRollTimer);
   }
 }
 
@@ -1130,14 +1150,25 @@ const makeImageTransparent = (src) => {
       
       // If the background is not already transparent, key out the background color
       if (aBg > 0) {
+        const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
+        const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
+        
         for (let i = 0; i < data.length; i += 4) {
-          const r = data[i];
-          const g = data[i+1];
-          const b = data[i+2];
-          
+          const r = data[i], g = data[i+1], b = data[i+2];
           const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
-          // If the pixel is close to the background color, make it transparent
-          if (distance < 50 || (rBg === 0 && gBg === 0 && bBg === 0 && r < 20 && g < 20 && b < 20)) {
+          
+          let threshold = 55;
+          if (isWhiteBg) {
+            threshold = 135;
+          } else if (isBlackBg) {
+            threshold = 120;
+          }
+          
+          if (distance < threshold) {
+            data[i+3] = 0;
+          } else if (isWhiteBg && r > 238 && g > 238 && b > 238) {
+            data[i+3] = 0;
+          } else if (isBlackBg && r < 18 && g < 18 && b < 18) {
             data[i+3] = 0;
           }
         }
@@ -1177,6 +1208,19 @@ preprocessCharacterVisuals().then(() => {
   loadSaveSlotsUI();
 }).catch(() => {
   loadSaveSlotsUI();
+});
+
+// Handle visibility change catchup for background throttling
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    if (lastRolledChar) {
+      updateDisplay(lastRolledChar);
+      lastRolledChar = null;
+    }
+    updateStats();
+    renderArmy();
+    renderUpgrades();
+  }
 });
 
 // Auto Sell Config Setup
