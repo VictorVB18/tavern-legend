@@ -1019,3 +1019,243 @@ img {
 .roll-impact {
   animation: rollFlashShake 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) forwards !important;
 }
+
+/* --- CELESTIAL ENVIRONMENT / VOID THEME OVERRIDES --- */
+body.celestial-mode {
+  --bg-color: #06020f;
+  --panel-bg: rgba(18, 10, 40, 0.75);
+  --parchment-bg: rgba(12, 6, 28, 0.9);
+  --parchment-border: #00ffff;
+  --border-color: #7c3aed;
+  --text-primary: #f0f9ff;
+  --text-dark: #00ffff;
+  --text-secondary: #a78bfa;
+  --accent: #00ffff;
+  --accent-hover: #38bdf8;
+
+  background-color: var(--bg-color);
+  background-image: radial-gradient(circle at 50% 50%, #170d38 0%, #06020f 100%) !important;
+}
+
+/* Celestial Particles override */
+body.celestial-mode .ember {
+  background: radial-gradient(circle, rgba(0, 255, 255, 1) 0%, rgba(139, 92, 246, 0.5) 60%, rgba(0,0,0,0) 100%) !important;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.6) !important;
+}
+
+/* Custom glowing badges for Eldritch rarity */
+.rarity-eldritch {
+  background: linear-gradient(135deg, #00ffff, #7c3aed) !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 8px #00ffff, 0 0 15px #7c3aed !important;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.6) !important;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-weight: bold;
+}
+
+/* Glassmorphism overrides for primary panels */
+body.celestial-mode .header {
+  background: rgba(15, 8, 34, 0.85) !important;
+  border: 4px solid #7c3aed !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(124, 58, 237, 0.3) !important;
+  backdrop-filter: blur(10px);
+}
+
+body.celestial-mode .header h1 {
+  color: #00ffff !important;
+  text-shadow: 0 0 15px rgba(0, 255, 255, 0.6), 2px 2px 4px #000 !important;
+}
+
+body.celestial-mode .header::before,
+body.celestial-mode .header::after {
+  color: #7c3aed !important;
+  text-shadow: 0 0 10px #00ffff !important;
+}
+
+body.celestial-mode .rolling-area {
+  background: rgba(15, 8, 34, 0.8) !important;
+  border: 4px solid #7c3aed !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(124, 58, 237, 0.3) !important;
+  backdrop-filter: blur(10px);
+}
+
+body.celestial-mode .panel {
+  background: rgba(15, 8, 34, 0.75) !important;
+  border: 3px solid #7c3aed !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(124, 58, 237, 0.2) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Glassmorphism overrides for character card and modals */
+body.celestial-mode .character-display {
+  background: rgba(10, 5, 25, 0.85) !important;
+  border: 4px solid #00ffff !important;
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.35), inset 0 0 40px rgba(124, 58, 237, 0.4) !important;
+  color: #e0f2fe !important;
+}
+
+body.celestial-mode .character-display::before {
+  box-shadow: inset 0 0 40px rgba(124, 58, 237, 0.3) !important;
+}
+
+body.celestial-mode .character-name {
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(124, 58, 237, 0.8) !important;
+}
+
+body.celestial-mode .parchment-modal {
+  background: rgba(8, 4, 20, 0.95) !important;
+  border: 5px solid #00ffff !important;
+  color: #f0f9ff !important;
+  box-shadow: 0 0 35px rgba(0, 255, 255, 0.4), inset 0 0 40px rgba(124, 58, 237, 0.45) !important;
+}
+
+/* Book pages transformation into dark starry scroll pages */
+body.celestial-mode .open-book {
+  background: #0f0724 !important;
+  box-shadow: inset 0 0 40px rgba(124, 58, 237, 0.3), 0 10px 30px rgba(0, 0, 0, 0.9) !important;
+}
+
+body.celestial-mode .book-page {
+  background: repeating-linear-gradient(to bottom, transparent, transparent 31px, rgba(124, 58, 237, 0.15) 31px, rgba(124, 58, 237, 0.15) 32px) !important;
+  color: #e0f2fe !important;
+  border-right-color: rgba(124, 58, 237, 0.3) !important;
+}
+
+body.celestial-mode .book-spine {
+  background: linear-gradient(to right, #090317, #7c3aed, #090317) !important;
+}
+
+body.celestial-mode .book-controls {
+  background: rgba(18, 10, 40, 0.9) !important;
+  border-top: 4px solid #7c3aed !important;
+}
+
+/* Glassmorphism item lists, slots, items, stats */
+body.celestial-mode .quest-item,
+body.celestial-mode .save-slot,
+body.celestial-mode .index-item {
+  background: rgba(124, 58, 237, 0.15) !important;
+  border: 2px solid #7c3aed !important;
+  color: #e0f2fe !important;
+  box-shadow: inset 0 0 10px rgba(124, 58, 237, 0.2) !important;
+}
+
+body.celestial-mode .quest-item:hover,
+body.celestial-mode .save-slot:hover,
+body.celestial-mode .index-item:not(.locked):hover {
+  border-color: #00ffff !important;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 10px rgba(124, 58, 237, 0.2) !important;
+}
+
+body.celestial-mode .slot-info,
+body.celestial-mode .quest-info p,
+body.celestial-mode .quest-info h3,
+body.celestial-mode .party-selection h3,
+body.celestial-mode .party-selection p,
+body.celestial-mode .modal-body p,
+body.celestial-mode .modal-body h3,
+body.celestial-mode .battle-stats,
+body.celestial-mode td,
+body.celestial-mode th {
+  color: #e0f2fe !important;
+}
+
+body.celestial-mode .accessibility-settings label {
+  color: #a78bfa !important;
+}
+
+body.celestial-mode #auto-sell-config h3 {
+  color: #00ffff !important;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.4) !important;
+}
+
+body.celestial-mode .dismiss-toggles span {
+  color: #a78bfa !important;
+}
+
+body.celestial-mode .battle-stats {
+  background: rgba(124, 58, 237, 0.2) !important;
+  border: 2px solid #00ffff !important;
+  color: #e0f2fe !important;
+}
+
+body.celestial-mode .party-total-str {
+  color: #00ffff !important;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5) !important;
+}
+
+/* Slick neon scrollbar for modals */
+body.celestial-mode .modal-body::-webkit-scrollbar,
+body.celestial-mode .book-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+body.celestial-mode .modal-body::-webkit-scrollbar-track,
+body.celestial-mode .book-page::-webkit-scrollbar-track {
+  background: rgba(12, 6, 28, 0.9);
+}
+
+body.celestial-mode .modal-body::-webkit-scrollbar-thumb,
+body.celestial-mode .book-page::-webkit-scrollbar-thumb {
+  background: #7c3aed;
+  border-radius: 4px;
+}
+
+body.celestial-mode .modal-body::-webkit-scrollbar-thumb:hover,
+body.celestial-mode .book-page::-webkit-scrollbar-thumb:hover {
+  background: #00ffff;
+}
+
+/* Premium gradient button styles */
+body.celestial-mode .btn-secondary {
+  background: linear-gradient(135deg, #1e1b4b, #581c87) !important;
+  color: #e0f2fe !important;
+  border-color: #7c3aed !important;
+}
+
+body.celestial-mode .btn-secondary:hover {
+  background: linear-gradient(135deg, #312e81, #6b21a8) !important;
+  border-color: #00ffff !important;
+}
+
+body.celestial-mode .btn-primary,
+body.celestial-mode #roll-btn {
+  background: linear-gradient(135deg, #0284c7, #7c3aed) !important;
+  color: #ffffff !important;
+  border-color: #00ffff !important;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.4) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+}
+
+body.celestial-mode .btn-primary:hover,
+body.celestial-mode #roll-btn:hover {
+  background: linear-gradient(135deg, #0ea5e9, #8b5cf6) !important;
+  box-shadow: 0 0 22px rgba(0, 255, 255, 0.7) !important;
+}
+
+body.celestial-mode .claim-btn {
+  background: linear-gradient(135deg, #0284c7, #7c3aed) !important;
+  color: #ffffff !important;
+  border-color: #00ffff !important;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.4) !important;
+}
+
+body.celestial-mode .claim-btn:hover {
+  background: linear-gradient(135deg, #0ea5e9, #8b5cf6) !important;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6) !important;
+}
+
+body.celestial-mode #rebirth-btn {
+  background: linear-gradient(135deg, #7c3aed, #db2777) !important;
+  border-color: #f472b6 !important;
+  box-shadow: 0 0 15px rgba(219, 39, 119, 0.5) !important;
+  color: #ffffff !important;
+}
+
+body.celestial-mode #rebirth-btn:hover {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.8) !important;
+}
+

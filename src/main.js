@@ -61,7 +61,10 @@ const CHARACTERS = [
   { id: 'time_weaver', name: "Time Weaver", visual: "/chars/time_weaver.png", rarity: "Mythic", chance: 400000, color: "#60a5fa", value: 200000, hp: 1200, str: 700, glow: "0 0 35px #60a5fa", anim: 'anim-pulse-glow' },
   { id: 'abyssal', name: "Abyssal Lord", visual: "/chars/abyssal.png", rarity: "Mythic", chance: 500000, color: "#ef4444", value: 250000, hp: 1500, str: 800, glow: "0 0 40px #ef4444", anim: 'anim-shake' },
   { id: 'star_weaver', name: "Star Weaver", visual: "/chars/star_weaver.png", rarity: "Divine", chance: 2500000, color: "linear-gradient(45deg, #a78bfa, #f472b6)", value: 1250000, hp: 6000, str: 3500, glow: "0 0 60px #f472b6, 0 0 30px #a78bfa", anim: 'anim-pulse-glow' },
-  { id: 'cosmic', name: "Cosmic Entity", visual: "/chars/cosmic.png", rarity: "Divine", chance: 5000000, color: "linear-gradient(45deg, #b8860b, #5c4033)", value: 2500000, hp: 9999, str: 5000, glow: "0 0 80px #b8860b, 0 0 40px #5c4033", anim: 'anim-pulse-glow' }
+  { id: 'cosmic', name: "Cosmic Entity", visual: "/chars/cosmic.png", rarity: "Divine", chance: 5000000, color: "linear-gradient(45deg, #b8860b, #5c4033)", value: 2500000, hp: 9999, str: 5000, glow: "0 0 80px #b8860b, 0 0 40px #5c4033", anim: 'anim-pulse-glow' },
+  { id: 'void_singularity', name: "Void Singularity", visual: "/chars/void_singularity.png", rarity: "Eldritch", chance: 7500000, color: "linear-gradient(45deg, #00ffff, #7c3aed)", value: 5000000, hp: 15000, str: 8000, glow: "0 0 80px #00ffff, 0 0 40px #7c3aed", anim: 'anim-pulse-glow', rebirthReq: 1 },
+  { id: 'celestial_empress', name: "Celestial Empress", visual: "/chars/celestial_empress.png", rarity: "Eldritch", chance: 10000000, color: "linear-gradient(45deg, #a78bfa, #00ffff)", value: 8000000, hp: 20000, str: 10000, glow: "0 0 80px #a78bfa, 0 0 40px #00ffff", anim: 'anim-float', rebirthReq: 1 },
+  { id: 'astral_dragon', name: "Astral Dragon", visual: "/chars/astral_dragon.png", rarity: "Eldritch", chance: 15000000, color: "linear-gradient(45deg, #38bdf8, #ec4899)", value: 12000000, hp: 30000, str: 15000, glow: "0 0 90px #38bdf8, 0 0 45px #ec4899", anim: 'anim-shake', rebirthReq: 1 }
 ];
 
 const UPGRADES = [
@@ -92,7 +95,7 @@ const MISSIONS = [
   }, rewardText: "+50,000 Gold", reward: () => state.coins += 50000 },
   { id: 'dungeon_master', title: "Dungeon Master", desc: "Reach Dungeon Floor 5", req: () => state.currentDungeonFloor >= 5, rewardText: "+250,000 Gold", reward: () => state.coins += 250000 },
   { id: 'summoner_master', title: "Master Summoner", desc: "Roll the dice 10,000 times", req: () => state.totalRolls >= 10000, rewardText: "+10 Luck Levels", reward: () => state.upgrades.luck += 10 },
-  { id: 'unlock_all', title: "Legendary Collector", desc: "Unlock all heroes (Index 100%)", req: () => Object.keys(state.unlocked).length >= CHARACTERS.length, rewardText: "+999,999 Gold", reward: () => state.coins += 999999 }
+  { id: 'unlock_all', title: "Legendary Collector", desc: "Unlock all heroes (Index 100%)", req: () => Object.keys(state.unlocked).length >= CHARACTERS.filter(c => !c.rebirthReq || state.prestige >= c.rebirthReq).length, rewardText: "+999,999 Gold", reward: () => state.coins += 999999 }
 ];
 
 const DUNGEON_BOSSES = [
@@ -169,6 +172,10 @@ function getSaveKey(slot) {
 }
 
 function loadSaveSlotsUI() {
+  document.body.classList.remove('celestial-mode');
+  const h1 = document.querySelector('.header h1');
+  if (h1) h1.textContent = "Tavern of Legends";
+  
   for (let i = 1; i <= 3; i++) {
     const dataStr = localStorage.getItem(getSaveKey(i));
     const slotEl = document.querySelector(`.save-slot[data-slot="${i}"]`);
@@ -178,7 +185,11 @@ function loadSaveSlotsUI() {
     
     if (dataStr) {
       const data = JSON.parse(dataStr);
-      infoEl.textContent = `Gold: ${Math.floor(data.coins)} | Summons: ${data.totalRolls}`;
+      if (data.prestige && data.prestige > 0) {
+        infoEl.innerHTML = `Gold: ${Math.floor(data.coins)} | Summons: ${data.totalRolls} | <span style="color: #7c3aed; font-weight: bold; text-shadow: 0 0 5px rgba(124, 58, 237, 0.5);">Rebirths: ${data.prestige}</span>`;
+      } else {
+        infoEl.textContent = `Gold: ${Math.floor(data.coins)} | Summons: ${data.totalRolls}`;
+      }
       deleteBtn.style.display = 'inline-block';
       playBtn.textContent = 'Continue';
     } else {
@@ -345,7 +356,8 @@ function notify(message, color = "var(--accent)") {
 
 function rollCharacter() {
   const luck = getLuckMultiplier();
-  const sorted = [...CHARACTERS].sort((a, b) => b.chance - a.chance);
+  const available = CHARACTERS.filter(c => !c.rebirthReq || state.prestige >= c.rebirthReq);
+  const sorted = [...available].sort((a, b) => b.chance - a.chance);
   
   for (const char of sorted) {
     const effectiveChance = Math.max(1, char.chance / luck);
@@ -843,8 +855,20 @@ function renderQuests() {
   document.getElementById('book-next-btn').disabled = currentQuestPage >= maxPage;
 }
 
+function updateEnvironmentTheme() {
+  const h1 = document.querySelector('.header h1');
+  if (state && state.prestige > 0) {
+    document.body.classList.add('celestial-mode');
+    if (h1 && h1.textContent !== "Astral Sanctuary") h1.textContent = "Astral Sanctuary";
+  } else {
+    document.body.classList.remove('celestial-mode');
+    if (h1 && h1.textContent !== "Tavern of Legends") h1.textContent = "Tavern of Legends";
+  }
+}
+
 // --- UI UPDATES ---
 function updateStats() {
+  updateEnvironmentTheme();
   document.getElementById('coins-display').textContent = Math.floor(state.coins);
   document.getElementById('rolls-display').textContent = state.totalRolls;
   document.getElementById('luck-display').textContent = getLuckMultiplier().toFixed(1) + 'x';
@@ -908,12 +932,15 @@ function updateDisplay(char) {
     nameEl.style.webkitBackgroundClip = 'initial';
   }
   
+  const isCelestial = state && state.prestige > 0;
+  const insetShadow = isCelestial ? 'inset 0 0 40px rgba(124, 58, 237, 0.4)' : 'inset 0 0 50px rgba(139, 90, 43, 0.4)';
+  
   if (char.glow) {
-    display.style.boxShadow = `0 5px 20px rgba(0, 0, 0, 0.8), inset 0 0 50px rgba(139, 90, 43, 0.4), ${char.glow}`;
-    display.style.borderColor = char.color;
+    display.style.boxShadow = `0 5px 20px rgba(0, 0, 0, 0.8), ${insetShadow}, ${char.glow}`;
+    display.style.borderColor = char.color.startsWith('linear-gradient') ? '#00ffff' : char.color;
   } else {
-    display.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.8), inset 0 0 50px rgba(139, 90, 43, 0.4)';
-    display.style.borderColor = 'var(--parchment-border)';
+    display.style.boxShadow = `0 5px 20px rgba(0, 0, 0, 0.8), ${insetShadow}`;
+    display.style.borderColor = isCelestial ? '#00ffff' : 'var(--parchment-border)';
   }
 }
 
