@@ -71,7 +71,8 @@ const UPGRADES = [
   { id: 'tactics', name: "War Tactics", desc: "Increases party power in boss fights by +5%", baseCost: 500, costMult: 2.0 },
   { id: 'wealth', name: "Tavern Income", desc: "Passively generates +1 Gold every second", baseCost: 300, costMult: 1.5 },
   { id: 'auto', name: "Auto-Summon", desc: "Unlocks constant automatic summoning", baseCost: 5000, costMult: 1, maxLevel: 1 },
-  { id: 'auto_sell_module', name: "Contract of Selling", desc: "Unlocks Auto-Dismiss filters for low rarity heroes", baseCost: 100, costMult: 1, maxLevel: 1 }
+  { id: 'auto_sell_module', name: "Contract of Selling", desc: "Unlocks Auto-Dismiss filters for low rarity heroes", baseCost: 100, costMult: 1, maxLevel: 1 },
+  { id: 'auto_upgrade_module', name: "Auto-Upgrader", desc: "Automatically purchases the cheapest available upgrade", baseCost: 20000, costMult: 1, maxLevel: 1 }
 ];
 
 const MISSIONS = [
@@ -139,8 +140,9 @@ const getInitialState = () => ({
   totalRolls: 0,
   army: {}, // id: count
   unlocked: {}, // id: true (for Index)
-  upgrades: { luck: 0, speed: 0, bargain: 0, tactics: 0, wealth: 0, auto: 0, auto_sell_module: 0 },
+  upgrades: { luck: 0, speed: 0, bargain: 0, tactics: 0, wealth: 0, auto: 0, auto_sell_module: 0, auto_upgrade_module: 0 },
   autoRollActive: false,
+  autoUpgradeActive: false,
   claimedRewards: {}, // id: true
   autoSellConfig: { "Common": false, "Uncommon": false, "Rare": false, "Epic": false },
   lastSaveTime: Date.now(),
@@ -212,6 +214,7 @@ function loadGame(slot) {
     if (state.prestige === undefined) state.prestige = 0;
     if (!state.equipment) state.equipment = {};
     if (state.reduceMotion === undefined) state.reduceMotion = false;
+    if (state.autoUpgradeActive === undefined) state.autoUpgradeActive = false;
     
     // Offline Progress Calculation
     const now = Date.now();
@@ -238,6 +241,12 @@ function loadGame(slot) {
   
   if (state.autoRollActive) {
     toggleAutoRoll(true);
+  }
+  
+  if (state.autoUpgradeActive) {
+    toggleAutoUpgrade(true);
+  } else {
+    toggleAutoUpgrade(false);
   }
   
   updateAutoSellUI();
@@ -312,8 +321,11 @@ let autoRollTimer = null;
 let lastRolledChar = null;
 let passiveIncomeTimer = setInterval(() => {
   state.lastSaveTime = Date.now();
-  if (document.getElementById('app').style.display !== 'none' && state.upgrades.wealth > 0) {
-    state.coins += state.upgrades.wealth * getSellMultiplier();
+  if (document.getElementById('app').style.display !== 'none') {
+    if (state.upgrades.wealth > 0) {
+      state.coins += state.upgrades.wealth * getSellMultiplier();
+    }
+    runAutoUpgrade();
     if (!document.hidden) {
       updateStats();
       renderUpgrades(); // To update button disabled states
@@ -440,6 +452,60 @@ function autoRollLoop() {
     performRoll();
   }
   autoRollTimer = setTimeout(autoRollLoop, getCooldownMs() + 50);
+}
+
+function toggleAutoUpgrade(forceState = null) {
+  if (state.upgrades.auto_upgrade_module === 0) return;
+  
+  const targetState = forceState !== null ? forceState : !state.autoUpgradeActive;
+  state.autoUpgradeActive = targetState;
+  
+  const btn = document.getElementById('auto-upgrade-btn');
+  if (state.autoUpgradeActive) {
+    btn.classList.add('active');
+    btn.textContent = "Auto-Upgrade: ON";
+    runAutoUpgrade();
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = "Auto-Upgrade: OFF";
+  }
+  saveState();
+}
+
+function runAutoUpgrade() {
+  if (state.upgrades.auto_upgrade_module === 0 || !state.autoUpgradeActive) return;
+  
+  let purchasedAny = false;
+  while (true) {
+    const available = UPGRADES.filter(upg => {
+      const level = state.upgrades[upg.id] || 0;
+      const maxed = upg.maxLevel && level >= upg.maxLevel;
+      return !maxed;
+    });
+    
+    if (available.length === 0) break;
+    
+    available.sort((a, b) => getUpgradeCost(a.id) - getUpgradeCost(b.id));
+    
+    const cheapest = available[0];
+    const cost = getUpgradeCost(cheapest.id);
+    
+    if (state.coins >= cost) {
+      state.coins -= cost;
+      state.upgrades[cheapest.id]++;
+      purchasedAny = true;
+      playSfx('upgrade');
+    } else {
+      break;
+    }
+  }
+  
+  if (purchasedAny) {
+    saveState();
+    updateStats();
+    renderUpgrades();
+    renderArmy();
+  }
 }
 
 // --- MODALS ---
@@ -993,12 +1059,36 @@ function renderUpgrades() {
   
   if (state.upgrades.auto > 0) {
     document.getElementById('auto-roll-btn').style.display = 'block';
+    const btn = document.getElementById('auto-roll-btn');
+    if (state.autoRollActive) {
+      btn.classList.add('active');
+      btn.textContent = "Auto-Summon: ON";
+    } else {
+      btn.classList.remove('active');
+      btn.textContent = "Auto-Summon: OFF";
+    }
+  } else {
+    document.getElementById('auto-roll-btn').style.display = 'none';
   }
   
   if (state.upgrades.auto_sell_module > 0) {
     document.getElementById('auto-sell-config').style.display = 'block';
   } else {
     document.getElementById('auto-sell-config').style.display = 'none';
+  }
+  
+  if (state.upgrades.auto_upgrade_module > 0) {
+    document.getElementById('auto-upgrade-btn').style.display = 'block';
+    const btn = document.getElementById('auto-upgrade-btn');
+    if (state.autoUpgradeActive) {
+      btn.classList.add('active');
+      btn.textContent = "Auto-Upgrade: ON";
+    } else {
+      btn.classList.remove('active');
+      btn.textContent = "Auto-Upgrade: OFF";
+    }
+  } else {
+    document.getElementById('auto-upgrade-btn').style.display = 'none';
   }
 }
 
@@ -1329,6 +1419,7 @@ async function preprocessCharacterVisuals() {
 // --- INIT ---
 document.getElementById('roll-btn').addEventListener('click', performRoll);
 document.getElementById('auto-roll-btn').addEventListener('click', () => toggleAutoRoll());
+document.getElementById('auto-upgrade-btn').addEventListener('click', () => toggleAutoUpgrade());
 document.getElementById('save-btn').addEventListener('click', () => {
   saveState();
   notify('Game Saved Successfully!', '#2e8b57');
