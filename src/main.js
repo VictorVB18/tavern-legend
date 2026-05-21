@@ -42,6 +42,7 @@ const CHARACTERS = [
   { id: 'necromancer', name: "Necromancer", visual: "/chars/necromancer.png", rarity: "Epic", chance: 2200, color: "#a855f7", value: 1100, hp: 75, str: 65, anim: 'anim-float' },
   { id: 'storm_summoner', name: "Storm Summoner", visual: "/chars/storm_summoner.png", rarity: "Epic", chance: 2500, color: "#06b6d4", value: 1250, hp: 70, str: 55, anim: 'anim-float' },
   { id: 'clockwork_tinker', name: "Clockwork Tinker", visual: "/chars/clockwork_tinker.png", rarity: "Epic", chance: 2600, color: "#06b6d4", value: 1300, hp: 80, str: 60, anim: 'anim-float' },
+  { id: 'lunar_warden', name: "Lunar Warden", visual: "/chars/lunar_warden.png", rarity: "Epic", chance: 3000, color: "#06b6d4", value: 1500, hp: 90, str: 70, anim: 'anim-float' },
   { id: 'dark_elf', name: "Dark Elf Ranger", visual: "/chars/elf.png", cssFilter: "hue-rotate(240deg) saturate(1.5) brightness(0.8)", rarity: "Epic", chance: 2800, color: "#a855f7", value: 1400, hp: 85, str: 55, anim: 'anim-float' },
   { id: 'paladin', name: "Holy Paladin", visual: "/chars/paladin.png", rarity: "Epic", chance: 3500, color: "#a855f7", value: 1800, hp: 200, str: 60, anim: 'anim-shake' },
   { id: 'demon', name: "Demon Brute", visual: "/chars/demon.png", rarity: "Epic", chance: 5000, color: "#a855f7", value: 2500, hp: 150, str: 75, anim: 'anim-shake' },
@@ -49,14 +50,17 @@ const CHARACTERS = [
   { id: 'pegasus', name: "Pegasus", visual: "/chars/pegasus.png", rarity: "Legendary", chance: 18000, color: "#fcd34d", value: 8500, hp: 320, str: 220, glow: "0 0 20px #fcd34d", anim: 'anim-float' },
   { id: 'gryphon', name: "Majestic Gryphon", visual: "/chars/gryphon.png", rarity: "Legendary", chance: 20000, color: "#fcd34d", value: 9500, hp: 350, str: 250, glow: "0 0 20px #fcd34d", anim: 'anim-pulse-glow' },
   { id: 'tesla_mage', name: "Tesla Mage", visual: "/chars/tesla_mage.png", rarity: "Legendary", chance: 22000, color: "#fbbf24", value: 9000, hp: 340, str: 240, glow: "0 0 20px #06b6d4", anim: 'anim-pulse-glow' },
+  { id: 'solar_valkyrie', name: "Solar Valkyrie", visual: "/chars/solar_valkyrie.png", rarity: "Legendary", chance: 30000, color: "#fbbf24", value: 11000, hp: 420, str: 260, glow: "0 0 20px #fbbf24", anim: 'anim-pulse-glow' },
   { id: 'dragon', name: "Elder Dragon", visual: "/chars/dragon.png", rarity: "Legendary", chance: 25000, color: "#fbbf24", value: 10000, hp: 500, str: 200, glow: "0 0 20px #fbbf24", anim: 'anim-pulse-glow' },
   { id: 'phoenix', name: "Fiery Phoenix", visual: "/chars/phoenix.png", rarity: "Legendary", chance: 50000, color: "#f59e0b", value: 25000, hp: 300, str: 350, glow: "0 0 25px #f59e0b", anim: 'anim-pulse-glow' },
   { id: 'archangel', name: "Archangel", visual: "/chars/archangel.png", rarity: "Legendary", chance: 100000, color: "#f59e0b", value: 50000, hp: 400, str: 250, glow: "0 0 30px #f59e0b", anim: 'anim-pulse-glow' },
   { id: 'void_mage', name: "Void Mage", visual: "/chars/mage.png", cssFilter: "invert(1) hue-rotate(180deg) contrast(1.5)", rarity: "Mythic", chance: 300000, color: "#ef4444", value: 150000, hp: 800, str: 600, glow: "0 0 30px #a855f7", anim: 'anim-shake' },
   { id: 'void_stalker', name: "Void Stalker", visual: "/chars/void_stalker.png", rarity: "Mythic", chance: 350000, color: "#a78bfa", value: 180000, hp: 1000, str: 650, glow: "0 0 35px #a78bfa", anim: 'anim-shake' },
   { id: 'clockwork_alchemist', name: "Clockwork Alchemist", visual: "/chars/clockwork_alchemist.png", rarity: "Mythic", chance: 380000, color: "#a78bfa", value: 190000, hp: 1100, str: 680, glow: "0 0 35px #a78bfa", anim: 'anim-shake' },
+  { id: 'nebula_serpent', name: "Nebula Serpent", visual: "/chars/nebula_serpent.png", rarity: "Mythic", chance: 420000, color: "#a78bfa", value: 210000, hp: 1300, str: 720, glow: "0 0 35px #a78bfa", anim: 'anim-float' },
   { id: 'time_weaver', name: "Time Weaver", visual: "/chars/time_weaver.png", rarity: "Mythic", chance: 400000, color: "#60a5fa", value: 200000, hp: 1200, str: 700, glow: "0 0 35px #60a5fa", anim: 'anim-pulse-glow' },
   { id: 'abyssal', name: "Abyssal Lord", visual: "/chars/abyssal.png", rarity: "Mythic", chance: 500000, color: "#ef4444", value: 250000, hp: 1500, str: 800, glow: "0 0 40px #ef4444", anim: 'anim-shake' },
+  { id: 'star_weaver', name: "Star Weaver", visual: "/chars/star_weaver.png", rarity: "Divine", chance: 2500000, color: "linear-gradient(45deg, #a78bfa, #f472b6)", value: 1250000, hp: 6000, str: 3500, glow: "0 0 60px #f472b6, 0 0 30px #a78bfa", anim: 'anim-pulse-glow' },
   { id: 'cosmic', name: "Cosmic Entity", visual: "/chars/cosmic.png", rarity: "Divine", chance: 5000000, color: "linear-gradient(45deg, #b8860b, #5c4033)", value: 2500000, hp: 9999, str: 5000, glow: "0 0 80px #b8860b, 0 0 40px #5c4033", anim: 'anim-pulse-glow' }
 ];
 
