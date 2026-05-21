@@ -1414,6 +1414,15 @@ async function preprocessCharacterVisuals() {
       }
     }
   }
+  for (const boss of DUNGEON_BOSSES) {
+    if (boss.visual && boss.visual.endsWith('.png')) {
+      try {
+        boss.visual = await makeImageTransparent(boss.visual);
+      } catch (e) {
+        console.error("Failed to make boss visual transparent:", boss.visual, e);
+      }
+    }
+  }
 }
 
 // --- INIT ---
