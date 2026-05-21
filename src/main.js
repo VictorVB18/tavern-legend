@@ -1259,143 +1259,147 @@ document.addEventListener('click', (e) => {
 const makeImageTransparent = (src) => {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-      const width = canvas.width;
-      const height = canvas.height;
-      
-      // Sample the top-left pixel
-      const rBg = data[0], gBg = data[1], bBg = data[2], aBg = data[3];
-      
-      // If the background is not already transparent, key out the background color
-      if (aBg > 0) {
-        const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
-        const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        const width = canvas.width;
+        const height = canvas.height;
         
-        // Use conservative thresholds to prevent leaking through anti-aliased outlines or light hair/skin
-        let threshold = 55;
-        if (isWhiteBg) {
-          threshold = 60; // Very tight threshold to guarantee BFS never leaks inside
-        } else if (isBlackBg) {
-          threshold = 50;
-        }
-
-        console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg})`);
-
-        // Pre-allocate visited and queue arrays for performance
-        const visited = new Uint8Array(width * height);
-        const queue = new Int32Array(width * height);
-        let head = 0;
-        let tail = 0;
-
-        // Helper to add a pixel to the BFS queue
-        const enqueue = (x, y) => {
-          if (x >= 0 && x < width && y >= 0 && y < height) {
-            const idx = y * width + x;
-            if (visited[idx] === 0) {
-              visited[idx] = 1;
-              queue[tail++] = idx;
-            }
+        // Sample the top-left pixel
+        const rBg = data[0], gBg = data[1], bBg = data[2], aBg = data[3];
+        
+        // If the background is not already transparent, key out the background color
+        if (aBg > 0) {
+          const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
+          const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
+          
+          // Use conservative thresholds to prevent leaking through anti-aliased outlines or light hair/skin
+          let threshold = 55;
+          if (isWhiteBg) {
+            threshold = 60; // Very tight threshold to guarantee BFS never leaks inside
+          } else if (isBlackBg) {
+            threshold = 50;
           }
-        };
 
-        // Initialize the BFS from all border pixels
-        for (let x = 0; x < width; x++) {
-          enqueue(x, 0);
-          enqueue(x, height - 1);
-        }
-        for (let y = 0; y < height; y++) {
-          enqueue(0, y);
-          enqueue(width - 1, y);
-        }
+          console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg})`);
 
-        let mainBgKeyedOut = 0;
+          // Pre-allocate visited and queue arrays for performance
+          const visited = new Uint8Array(width * height);
+          const queue = new Int32Array(width * height);
+          let head = 0;
+          let tail = 0;
 
-        // BFS flood fill - Safe Main Background Keyout
-        while (head < tail) {
-          const idx = queue[head++];
-          const x = idx % width;
-          const y = Math.floor(idx / width);
-          
-          const i = idx * 4;
-          const r = data[i];
-          const g = data[i+1];
-          const b = data[i+2];
-          const a = data[i+3];
-          
-          const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
-          const isMatch = distance < threshold;
-
-          if (isMatch || a === 0) {
-            if (data[i+3] !== 0) {
-              data[i+3] = 0; // Key out alpha
-              mainBgKeyedOut++;
-            }
-            
-            // Queue adjacent neighbors
-            enqueue(x + 1, y);
-            enqueue(x - 1, y);
-            enqueue(x, y + 1);
-            enqueue(x, y - 1);
-          }
-        }
-        
-        console.log(`[Transparency] BFS Phase: ${src} | Keyed out ${mainBgKeyedOut} core background pixels.`);
-
-        // Step 2: Morphological Erosion of light-colored/fuzzy fringes from the outside-in
-        const erosionThreshold = isWhiteBg ? 135 : 120;
-        let totalFringeErased = 0;
-        
-        for (let pass = 0; pass < 5; pass++) {
-          const toErase = [];
-          
-          for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
+          // Helper to add a pixel to the BFS queue
+          const enqueue = (x, y) => {
+            if (x >= 0 && x < width && y >= 0 && y < height) {
               const idx = y * width + x;
-              const i = idx * 4;
+              if (visited[idx] === 0) {
+                visited[idx] = 1;
+                queue[tail++] = idx;
+              }
+            }
+          };
+
+          // Initialize the BFS from all border pixels
+          for (let x = 0; x < width; x++) {
+            enqueue(x, 0);
+            enqueue(x, height - 1);
+          }
+          for (let y = 0; y < height; y++) {
+            enqueue(0, y);
+            enqueue(width - 1, y);
+          }
+
+          let mainBgKeyedOut = 0;
+
+          // BFS flood fill - Safe Main Background Keyout
+          while (head < tail) {
+            const idx = queue[head++];
+            const x = idx % width;
+            const y = Math.floor(idx / width);
+            
+            const i = idx * 4;
+            const r = data[i];
+            const g = data[i+1];
+            const b = data[i+2];
+            const a = data[i+3];
+            
+            const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
+            const isMatch = distance < threshold;
+
+            if (isMatch || a === 0) {
+              if (data[i+3] !== 0) {
+                data[i+3] = 0; // Key out alpha
+                mainBgKeyedOut++;
+              }
               
-              // Only consider non-transparent pixels
-              if (data[i+3] > 0) {
-                // Check if adjacent to a transparent pixel (4-connectivity)
-                const upTrans = data[((y - 1) * width + x) * 4 + 3] === 0;
-                const downTrans = data[((y + 1) * width + x) * 4 + 3] === 0;
-                const leftTrans = data[(y * width + (x - 1)) * 4 + 3] === 0;
-                const rightTrans = data[(y * width + (x + 1)) * 4 + 3] === 0;
+              // Queue adjacent neighbors
+              enqueue(x + 1, y);
+              enqueue(x - 1, y);
+              enqueue(x, y + 1);
+              enqueue(x, y - 1);
+            }
+          }
+          
+          console.log(`[Transparency] BFS Phase: ${src} | Keyed out ${mainBgKeyedOut} core background pixels.`);
+
+          // Step 2: Morphological Erosion of light-colored/fuzzy fringes from the outside-in
+          const erosionThreshold = isWhiteBg ? 135 : 120;
+          let totalFringeErased = 0;
+          
+          for (let pass = 0; pass < 5; pass++) {
+            const toErase = [];
+            
+            for (let y = 1; y < height - 1; y++) {
+              for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const i = idx * 4;
                 
-                if (upTrans || downTrans || leftTrans || rightTrans) {
-                  const r = data[i], g = data[i+1], b = data[i+2];
-                  const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
+                // Only consider non-transparent pixels
+                if (data[i+3] > 0) {
+                  // Check if adjacent to a transparent pixel (4-connectivity)
+                  const upTrans = data[((y - 1) * width + x) * 4 + 3] === 0;
+                  const downTrans = data[((y + 1) * width + x) * 4 + 3] === 0;
+                  const leftTrans = data[(y * width + (x - 1)) * 4 + 3] === 0;
+                  const rightTrans = data[(y * width + (x + 1)) * 4 + 3] === 0;
                   
-                  // If it matches background loosely, mark it for erasure
-                  if (distance < erosionThreshold) {
-                    toErase.push(i);
+                  if (upTrans || downTrans || leftTrans || rightTrans) {
+                    const r = data[i], g = data[i+1], b = data[i+2];
+                    const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
+                    
+                    // If it matches background loosely, mark it for erasure
+                    if (distance < erosionThreshold) {
+                      toErase.push(i);
+                    }
                   }
                 }
               }
             }
+            
+            // Apply erasure for this pass
+            toErase.forEach(i => {
+              data[i+3] = 0;
+              totalFringeErased++;
+            });
+            
+            // Stop early if no more fringes were erased in this pass
+            if (toErase.length === 0) break;
           }
           
-          // Apply erasure for this pass
-          toErase.forEach(i => {
-            data[i+3] = 0;
-            totalFringeErased++;
-          });
-          
-          // Stop early if no more fringes were erased in this pass
-          if (toErase.length === 0) break;
+          console.log(`[Transparency] Erosion Phase: ${src} | Erased ${totalFringeErased} fringe pixels.`);
         }
-        
-        console.log(`[Transparency] Erosion Phase: ${src} | Erased ${totalFringeErased} fringe pixels.`);
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL());
+      } catch (e) {
+        console.error("Canvas transparent processing failed:", e);
+        resolve(src);
       }
-      ctx.putImageData(imgData, 0, 0);
-      resolve(canvas.toDataURL());
     };
     img.onerror = () => {
       resolve(src);
@@ -1405,10 +1409,18 @@ const makeImageTransparent = (src) => {
 };
 
 async function preprocessCharacterVisuals() {
+  const transparentCache = {};
+  
   for (const char of CHARACTERS) {
     if (char.visual.endsWith('.png')) {
+      const originalPath = char.visual;
       try {
-        char.visual = await makeImageTransparent(char.visual);
+        if (transparentCache[originalPath]) {
+          char.visual = transparentCache[originalPath];
+        } else {
+          char.visual = await makeImageTransparent(char.visual);
+          transparentCache[originalPath] = char.visual;
+        }
       } catch (e) {
         console.error("Failed to make image transparent:", char.visual, e);
       }
@@ -1416,8 +1428,14 @@ async function preprocessCharacterVisuals() {
   }
   for (const boss of DUNGEON_BOSSES) {
     if (boss.visual && boss.visual.endsWith('.png')) {
+      const originalPath = boss.visual;
       try {
-        boss.visual = await makeImageTransparent(boss.visual);
+        if (transparentCache[originalPath]) {
+          boss.visual = transparentCache[originalPath];
+        } else {
+          boss.visual = await makeImageTransparent(boss.visual);
+          transparentCache[originalPath] = boss.visual;
+        }
       } catch (e) {
         console.error("Failed to make boss visual transparent:", boss.visual, e);
       }
