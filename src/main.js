@@ -171,7 +171,7 @@ function loadSaveSlotsUI() {
     
     if (dataStr) {
       const data = JSON.parse(dataStr);
-      infoEl.textContent = `Gold: ${data.coins} | Summons: ${data.totalRolls}`;
+      infoEl.textContent = `Gold: ${Math.floor(data.coins)} | Summons: ${data.totalRolls}`;
       deleteBtn.style.display = 'inline-block';
       playBtn.textContent = 'Continue';
     } else {
