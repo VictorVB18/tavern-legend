@@ -148,7 +148,8 @@ const getInitialState = () => ({
   ascensions: {}, // id: level
   relics: {}, // id: count
   equipment: {}, // id: [relic_id, relic_id]
-  prestige: 0
+  prestige: 0,
+  reduceMotion: false
 });
 
 let state = getInitialState();
@@ -210,6 +211,7 @@ function loadGame(slot) {
     if (!state.currentDungeonFloor) state.currentDungeonFloor = 1;
     if (state.prestige === undefined) state.prestige = 0;
     if (!state.equipment) state.equipment = {};
+    if (state.reduceMotion === undefined) state.reduceMotion = false;
     
     // Offline Progress Calculation
     const now = Date.now();
@@ -239,6 +241,7 @@ function loadGame(slot) {
   }
   
   updateAutoSellUI();
+  updateAccessibilityUI();
   updateStats();
   renderArmy();
   renderUpgrades();
@@ -369,12 +372,14 @@ function performRoll() {
   if (!document.hidden) {
     updateDisplay(char);
     
-    // Trigger punchy card roll flash shake impact animation
+    // Trigger punchy card roll flash shake impact animation (skip if reduceMotion is enabled)
     const displayCard = document.getElementById('current-character-display');
     if (displayCard) {
       displayCard.classList.remove('roll-impact');
-      void displayCard.offsetWidth; // Force Reflow
-      displayCard.classList.add('roll-impact');
+      if (!state.reduceMotion) {
+        void displayCard.offsetWidth; // Force Reflow
+        displayCard.classList.add('roll-impact');
+      }
     }
     
     updateStats();
@@ -1391,6 +1396,23 @@ function updateAutoSellUI() {
     const checkbox = document.getElementById('auto-sell-' + rarity);
     if(checkbox) checkbox.checked = state.autoSellConfig[rarity];
   });
+}
+
+// Reduce Motion Setup
+const reduceMotionCheckbox = document.getElementById('reduce-motion-toggle');
+if (reduceMotionCheckbox) {
+  reduceMotionCheckbox.addEventListener('change', (e) => {
+    state.reduceMotion = e.target.checked;
+    saveState();
+    playSfx('click');
+  });
+}
+
+function updateAccessibilityUI() {
+  const checkbox = document.getElementById('reduce-motion-toggle');
+  if (checkbox) {
+    checkbox.checked = state.reduceMotion || false;
+  }
 }
 
 // Dismiss Multiplier Toggles
