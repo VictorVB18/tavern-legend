@@ -137,6 +137,69 @@ DUNGEON_BOSSES.forEach(b => {
   if (b.visual) b.visual = getAssetUrl(b.visual);
 });
 
+// --- EXPEDITION CONTRACTS ---
+const EXPEDITION_CONTRACTS = [
+  {
+    id: 'tavern_supply', name: 'Tavern Supply Run', emoji: '🍺',
+    desc: 'Gather supplies from the nearby market town.',
+    duration: 2 * 60, // 2 minutes
+    maxHeroes: 2,
+    difficulty: 'Easy',
+    diffColor: '#22c55e',
+    baseSuccessRate: 80,
+    rewards: () => ({
+      coins: Math.floor(500 + Math.random() * 500),
+      boosts: Math.random() < 0.3 ? [{ type: 'luck', label: 'Luck Boost (+1x)', duration: 5 * 60 * 1000 }] : []
+    }),
+    destination: '🏘️'
+  },
+  {
+    id: 'forest_hunt', name: 'Forest Hunting Trip', emoji: '🌲',
+    desc: 'Hunt for rare beasts in the enchanted forest.',
+    duration: 5 * 60, // 5 minutes
+    maxHeroes: 3,
+    difficulty: 'Medium',
+    diffColor: '#fbbf24',
+    baseSuccessRate: 65,
+    rewards: () => ({
+      coins: Math.floor(2000 + Math.random() * 2000),
+      boosts: Math.random() < 0.4 ? [{ type: 'luck', label: 'Luck Boost (+1x)', duration: 10 * 60 * 1000 }] : []
+    }),
+    destination: '🌲'
+  },
+  {
+    id: 'bandit_raid', name: 'Bandit Camp Raid', emoji: '⚔️',
+    desc: 'Storm a bandit hideout and seize their treasury.',
+    duration: 10 * 60, // 10 minutes
+    maxHeroes: 4,
+    difficulty: 'Hard',
+    diffColor: '#f97316',
+    baseSuccessRate: 50,
+    rewards: () => ({
+      coins: Math.floor(8000 + Math.random() * 8000),
+      boosts: Math.random() < 0.5 ? [{ type: 'speed', label: 'Haste Speed (30%)', duration: 15 * 60 * 1000 }] : []
+    }),
+    destination: '🏕️'
+  },
+  {
+    id: 'dragon_lair', name: "Dragon's Lair Heist", emoji: '🐉',
+    desc: 'Infiltrate a dragon hoard for legendary plunder.',
+    duration: 20 * 60, // 20 minutes
+    maxHeroes: 5,
+    difficulty: 'Legendary',
+    diffColor: '#c084fc',
+    baseSuccessRate: 35,
+    rewards: () => ({
+      coins: Math.floor(30000 + Math.random() * 30000),
+      boosts: [
+        { type: 'luck', label: 'Luck Boost (+1x)', duration: 30 * 60 * 1000 },
+        { type: 'speed', label: 'Haste Speed (30%)', duration: 30 * 60 * 1000 }
+      ]
+    }),
+    destination: '🏰'
+  }
+];
+
 // --- GAME STATE ---
 const getInitialState = () => ({
   coins: 0,
@@ -154,7 +217,10 @@ const getInitialState = () => ({
   relics: {}, // id: count
   equipment: {}, // id: [relic_id, relic_id]
   prestige: 0,
-  reduceMotion: false
+  reduceMotion: false,
+  activeAdventures: [], // [{contractId, heroIds, startTime, endTime, status}]
+  adventuresLock: {}, // heroId: lockCount (how many expeditions the hero is on)
+  expeditionBoosts: null // {luckBoostUntil, speedBoostUntil}
 });
 
 let state = getInitialState();
@@ -226,6 +292,9 @@ function loadGame(slot) {
     if (!state.equipment) state.equipment = {};
     if (state.reduceMotion === undefined) state.reduceMotion = false;
     if (state.autoUpgradeActive === undefined) state.autoUpgradeActive = false;
+    if (!state.activeAdventures) state.activeAdventures = [];
+    if (!state.adventuresLock) state.adventuresLock = {};
+    if (state.expeditionBoosts === undefined) state.expeditionBoosts = null;
     
     // Offline Progress Calculation
     const now = Date.now();
@@ -295,8 +364,16 @@ const getRelicMult = (type) => {
   const relic = RELICS.find(r => r.type === type);
   return 1.0 + ((state.relics[relic.id] || 0) * relic.mult);
 };
-const getLuckMultiplier = () => (1.0 + (state.upgrades.luck * 0.2)) * getPrestigeMult() * getRelicMult('luck');
-const getCooldownMs = () => Math.max(100, 1000 * Math.pow(0.9, state.upgrades.speed));
+const getLuckMultiplier = () => {
+  const luckBoostActive = state.expeditionBoosts && state.expeditionBoosts.luckBoostUntil > Date.now();
+  const luckBoostMult = luckBoostActive ? 2.0 : 1.0; // +1x luck
+  return (1.0 + (state.upgrades.luck * 0.2)) * getPrestigeMult() * getRelicMult('luck') * luckBoostMult;
+};
+const getCooldownMs = () => {
+  const speedBoostActive = state.expeditionBoosts && state.expeditionBoosts.speedBoostUntil > Date.now();
+  const baseCooldown = Math.max(100, 1000 * Math.pow(0.9, state.upgrades.speed));
+  return speedBoostActive ? Math.floor(baseCooldown * 0.7) : baseCooldown;
+};
 const getSellMultiplier = () => (1.0 + (state.upgrades.bargain * 0.10)) * getPrestigeMult() * getRelicMult('gold');
 const getTacticsMultiplier = () => (1.0 + (state.upgrades.tactics * 0.05)) * getRelicMult('power');
 
@@ -337,6 +414,7 @@ let passiveIncomeTimer = setInterval(() => {
       state.coins += state.upgrades.wealth * getSellMultiplier();
     }
     runAutoUpgrade();
+    tickExpeditions();
     if (!document.hidden) {
       updateStats();
       renderUpgrades(); // To update button disabled states
@@ -559,6 +637,16 @@ document.getElementById('open-relics-btn').addEventListener('click', () => {
   relicsModal.style.display = 'flex';
 });
 document.getElementById('close-relics-btn').addEventListener('click', () => relicsModal.style.display = 'none');
+
+// --- EXPEDITION MODAL ---
+const expeditionsModal = document.getElementById('expeditions-modal');
+document.getElementById('open-expeditions-btn').addEventListener('click', () => {
+  renderExpeditions();
+  expeditionsModal.style.display = 'flex';
+});
+document.getElementById('close-expeditions-btn').addEventListener('click', () => {
+  expeditionsModal.style.display = 'none';
+});
 
 document.getElementById('rebirth-btn').addEventListener('click', () => {
   if (confirm("Are you sure you want to Prestige? You will lose all Gold, Upgrades, Vanguard, and Dungeon Progress. But you will earn a permanent global 2x multiplier!")) {
@@ -1298,31 +1386,48 @@ const makeImageTransparent = (src) => {
         const width = canvas.width;
         const height = canvas.height;
         
-        // Sample the top-left pixel
-        const rBg = data[0], gBg = data[1], bBg = data[2], aBg = data[3];
+        // Scan margin pixels to robustly find the background color
+        let rBg = data[0], gBg = data[1], bBg = data[2], aBg = data[3];
+        let foundWhite = false;
+        
+        const samples = [
+          [2, 2], [width - 3, 2], [2, height - 3], [width - 3, height - 3],
+          [5, 5], [width - 6, 5], [5, height - 6], [width - 6, height - 6],
+          [0, 0]
+        ];
+        
+        for (const [sx, sy] of samples) {
+          if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+            const idx = (sy * width + sx) * 4;
+            const r = data[idx], g = data[idx+1], b = data[idx+2], a = data[idx+3];
+            if (a > 0 && r > 230 && g > 230 && b > 230) {
+              rBg = r; gBg = g; bBg = b; aBg = a;
+              foundWhite = true;
+              break;
+            }
+          }
+        }
         
         // If the background is not already transparent, key out the background color
         if (aBg > 0) {
           const isWhiteBg = rBg > 230 && gBg > 230 && bBg > 230;
           const isBlackBg = rBg < 25 && gBg < 25 && bBg < 25;
           
-          // Use conservative thresholds to prevent leaking through anti-aliased outlines or light hair/skin
           let threshold = 55;
           if (isWhiteBg) {
-            threshold = 60; // Very tight threshold to guarantee BFS never leaks inside
+            threshold = 60; // Very tight threshold to prevent interior bleeding
           } else if (isBlackBg) {
             threshold = 50;
           }
 
-          console.log(`[Transparency] Processing: ${src} | sampled background: RGBA(${rBg},${gBg},${bBg},${aBg})`);
+          console.log(`[Transparency] Processing: ${src} | Sampled background: RGBA(${rBg},${gBg},${bBg},${aBg})`);
 
-          // Pre-allocate visited and queue arrays for performance
+          // Visited map & queue
           const visited = new Uint8Array(width * height);
           const queue = new Int32Array(width * height);
           let head = 0;
           let tail = 0;
 
-          // Helper to add a pixel to the BFS queue
           const enqueue = (x, y) => {
             if (x >= 0 && x < width && y >= 0 && y < height) {
               const idx = y * width + x;
@@ -1333,14 +1438,22 @@ const makeImageTransparent = (src) => {
             }
           };
 
-          // Initialize the BFS from all border pixels
-          for (let x = 0; x < width; x++) {
-            enqueue(x, 0);
-            enqueue(x, height - 1);
+          // Initialize BFS from all borders using a 3-pixel margin
+          const margin = 3;
+          for (let m = 0; m < margin; m++) {
+            for (let x = m; x < width - m; x++) {
+              enqueue(x, m);
+              enqueue(x, height - 1 - m);
+            }
+            for (let y = m; y < height - m; y++) {
+              enqueue(m, y);
+              enqueue(width - 1 - m, y);
+            }
           }
-          for (let y = 0; y < height; y++) {
-            enqueue(0, y);
-            enqueue(width - 1, y);
+
+          // Also queue the sampled background points
+          for (const [sx, sy] of samples) {
+            enqueue(sx, sy);
           }
 
           let mainBgKeyedOut = 0;
@@ -1366,7 +1479,7 @@ const makeImageTransparent = (src) => {
                 mainBgKeyedOut++;
               }
               
-              // Queue adjacent neighbors
+              // Queue neighbors
               enqueue(x + 1, y);
               enqueue(x - 1, y);
               enqueue(x, y + 1);
@@ -1376,7 +1489,7 @@ const makeImageTransparent = (src) => {
           
           console.log(`[Transparency] BFS Phase: ${src} | Keyed out ${mainBgKeyedOut} core background pixels.`);
 
-          // Step 2: Morphological Erosion of light-colored/fuzzy fringes from the outside-in
+          // Step 2: Morphological Erosion of light-colored/fuzzy fringes
           const erosionThreshold = isWhiteBg ? 135 : 120;
           let totalFringeErased = 0;
           
@@ -1388,9 +1501,7 @@ const makeImageTransparent = (src) => {
                 const idx = y * width + x;
                 const i = idx * 4;
                 
-                // Only consider non-transparent pixels
                 if (data[i+3] > 0) {
-                  // Check if adjacent to a transparent pixel (4-connectivity)
                   const upTrans = data[((y - 1) * width + x) * 4 + 3] === 0;
                   const downTrans = data[((y + 1) * width + x) * 4 + 3] === 0;
                   const leftTrans = data[(y * width + (x - 1)) * 4 + 3] === 0;
@@ -1400,7 +1511,6 @@ const makeImageTransparent = (src) => {
                     const r = data[i], g = data[i+1], b = data[i+2];
                     const distance = Math.sqrt((r - rBg)**2 + (g - gBg)**2 + (b - bBg)**2);
                     
-                    // If it matches background loosely, mark it for erasure
                     if (distance < erosionThreshold) {
                       toErase.push(i);
                     }
@@ -1409,13 +1519,11 @@ const makeImageTransparent = (src) => {
               }
             }
             
-            // Apply erasure for this pass
             toErase.forEach(i => {
               data[i+3] = 0;
               totalFringeErased++;
             });
             
-            // Stop early if no more fringes were erased in this pass
             if (toErase.length === 0) break;
           }
           
@@ -1438,36 +1546,49 @@ const makeImageTransparent = (src) => {
 async function preprocessCharacterVisuals() {
   const transparentCache = {};
   
-  for (const char of CHARACTERS) {
-    if (char.visual.endsWith('.png')) {
+  // Process characters concurrently
+  const charPromises = CHARACTERS.map(async (char) => {
+    if (char.visual && char.visual.endsWith('.png') && !char.visual.startsWith('data:')) {
       const originalPath = char.visual;
       try {
         if (transparentCache[originalPath]) {
           char.visual = transparentCache[originalPath];
         } else {
-          char.visual = await makeImageTransparent(char.visual);
-          transparentCache[originalPath] = char.visual;
+          const res = await makeImageTransparent(char.visual);
+          char.visual = res;
+          transparentCache[originalPath] = res;
         }
       } catch (e) {
         console.error("Failed to make image transparent:", char.visual, e);
       }
     }
-  }
-  for (const boss of DUNGEON_BOSSES) {
-    if (boss.visual && boss.visual.endsWith('.png')) {
+  });
+
+  // Process bosses concurrently
+  const bossPromises = DUNGEON_BOSSES.map(async (boss) => {
+    if (boss.visual && boss.visual.endsWith('.png') && !boss.visual.startsWith('data:')) {
       const originalPath = boss.visual;
       try {
         if (transparentCache[originalPath]) {
           boss.visual = transparentCache[originalPath];
         } else {
-          boss.visual = await makeImageTransparent(boss.visual);
-          transparentCache[originalPath] = boss.visual;
+          const res = await makeImageTransparent(boss.visual);
+          boss.visual = res;
+          transparentCache[originalPath] = res;
         }
       } catch (e) {
         console.error("Failed to make boss visual transparent:", boss.visual, e);
       }
     }
-  }
+  });
+
+  // Execute concurrently and trigger UI refreshes on success
+  Promise.all([...charPromises, ...bossPromises]).then(() => {
+    console.log("[Transparency] All character and boss visuals are transparent!");
+    if (typeof renderArmy === 'function') renderArmy();
+    if (typeof renderBossPartySelection === 'function') renderBossPartySelection();
+    if (typeof renderExpeditions === 'function') renderExpeditions();
+  });
 }
 
 // --- INIT ---
@@ -1503,14 +1624,10 @@ function initEmbers() {
   }
 }
 
-// Start at Main Menu after pre-processing assets
-preprocessCharacterVisuals().then(() => {
-  initEmbers();
-  loadSaveSlotsUI();
-}).catch(() => {
-  initEmbers();
-  loadSaveSlotsUI();
-});
+// Start at Main Menu immediately, let preprocessing run concurrently in the background
+initEmbers();
+loadSaveSlotsUI();
+preprocessCharacterVisuals();
 
 // Handle visibility change catchup for background throttling
 document.addEventListener('visibilitychange', () => {
@@ -1654,3 +1771,520 @@ function renderEquipModal(charId) {
   });
 }
 
+// =============================================================================
+// --- GUILD EXPEDITIONS SYSTEM ---
+// =============================================================================
+
+// Generates premium pixel-art SVG layers for the scenic trek as Base64 data URIs
+const svgToDataUri = (svgStr) => {
+  const b64 = btoa(unescape(encodeURIComponent(svgStr)));
+  return `url('data:image/svg+xml;base64,${b64}')`;
+};
+
+const PIXEL_SVGS = {
+  // === STANDARD LUSH FOREST ===
+  sky_clouds: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" shape-rendering="crispEdges"><rect width="120" height="40" fill="none"/><rect x="8" y="6" width="22" height="6" fill="#ffffff"/><rect x="6" y="8" width="26" height="8" fill="#ffffff"/><rect x="4" y="10" width="30" height="6" fill="#f0f4ff"/><rect x="10" y="4" width="10" height="4" fill="#ffffff"/><rect x="14" y="2" width="6" height="4" fill="#e8eeff"/><rect x="70" y="10" width="18" height="5" fill="#ffffff"/><rect x="68" y="12" width="22" height="6" fill="#ffffff"/><rect x="66" y="14" width="26" height="4" fill="#f0f4ff"/><rect x="74" y="8" width="8" height="4" fill="#ffffff"/></svg>`),
+
+  mountains: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="30" shape-rendering="crispEdges"><rect width="240" height="30" fill="none"/><polygon points="0,30 40,0 80,30" fill="#7c9abf"/><polygon points="40,12 48,4 56,12" fill="#dde9f5"/><polygon points="60,30 110,2 160,30" fill="#6a87ad"/><polygon points="100,14 110,4 120,14" fill="#e8f0f8"/><polygon points="110,14 118,8 126,14" fill="#dde9f5"/><polygon points="150,30 195,6 240,30" fill="#7c9abf"/><polygon points="185,16 195,6 205,16" fill="#dde9f5"/></svg>`),
+
+  hills: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20" shape-rendering="crispEdges"><rect width="200" height="20" fill="none"/><ellipse cx="50" cy="20" rx="70" ry="18" fill="#4ade80"/><ellipse cx="155" cy="22" rx="75" ry="16" fill="#22c55e"/></svg>`),
+
+  forest_decor: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="45" shape-rendering="crispEdges"><rect width="320" height="45" fill="none"/><rect x="8" y="20" width="4" height="25" fill="#5c4a1e"/><rect x="2" y="12" width="16" height="16" fill="#15803d"/><rect x="4" y="6" width="12" height="10" fill="#16a34a"/><rect x="6" y="2" width="8" height="6" fill="#22c55e"/><rect x="38" y="22" width="6" height="23" fill="#5c4a1e"/><rect x="30" y="8" width="22" height="18" fill="#14532d"/><rect x="34" y="4" width="14" height="10" fill="#15803d"/><rect x="36" y="0" width="10" height="6" fill="#166534"/><rect x="60" y="28" width="6" height="17" fill="#78716c"/><rect x="56" y="24" width="14" height="12" fill="#a8a29e"/><rect x="58" y="28" width="10" height="8" fill="#d6d3d1"/><rect x="86" y="30" width="16" height="15" fill="#14532d"/><rect x="88" y="32" width="12" height="8" fill="#15803d"/><rect x="90" y="34" width="8" height="4" fill="#22c55e"/><rect x="148" y="18" width="4" height="27" fill="#5c4a1e"/><rect x="142" y="10" width="16" height="14" fill="#15803d"/><rect x="144" y="4" width="12" height="10" fill="#16a34a"/><rect x="146" y="0" width="8" height="6" fill="#22c55e"/><rect x="168" y="28" width="18" height="17" fill="#14532d"/><rect x="170" y="30" width="14" height="10" fill="#166534"/><rect x="172" y="32" width="10" height="6" fill="#15803d"/><rect x="200" y="26" width="8" height="19" fill="#78716c"/><rect x="196" y="22" width="16" height="12" fill="#a8a29e"/><rect x="200" y="28" width="8" height="6" fill="#d6d3d1"/><rect x="225" y="32" width="10" height="13" fill="#166534"/><rect x="227" y="33" width="6" height="8" fill="#15803d"/><rect x="240" y="33" width="4" height="12" fill="#ef4444"/><rect x="238" y="34" width="2" height="6" fill="#dc2626"/><rect x="242" y="34" width="2" height="5" fill="#fca5a5"/><rect x="272" y="18" width="4" height="27" fill="#5c4a1e"/><rect x="266" y="10" width="16" height="14" fill="#16a34a"/><rect x="268" y="4" width="12" height="10" fill="#22c55e"/><rect x="270" y="1" width="8" height="5" fill="#4ade80"/><rect x="296" y="28" width="16" height="17" fill="#14532d"/><rect x="298" y="30" width="12" height="10" fill="#166534"/></svg>`),
+
+  ground: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="20" shape-rendering="crispEdges"><rect width="64" height="20" fill="#92400e"/><rect width="64" height="6" fill="#15803d"/><rect x="0" y="6" width="64" height="2" fill="#14532d"/><rect x="4" y="1" width="3" height="4" fill="#22c55e"/><rect x="5" y="0" width="1" height="2" fill="#4ade80"/><rect x="18" y="2" width="2" height="3" fill="#22c55e"/><rect x="30" y="1" width="3" height="4" fill="#22c55e"/><rect x="31" y="0" width="1" height="2" fill="#4ade80"/><rect x="46" y="2" width="2" height="3" fill="#22c55e"/><rect x="58" y="1" width="3" height="3" fill="#22c55e"/><rect x="10" y="10" width="4" height="2" fill="#a16207"/><rect x="36" y="12" width="6" height="2" fill="#a16207"/></svg>`),
+
+  // === CELESTIAL SPACE REALM ===
+  sky_nebula: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" shape-rendering="crispEdges"><rect width="120" height="40" fill="none"/><rect x="6" y="4" width="2" height="2" fill="#e879f9"/><rect x="15" y="12" width="3" height="3" fill="#818cf8" opacity="0.8"/><rect x="22" y="6" width="2" height="2" fill="#ffffff"/><rect x="35" y="18" width="4" height="4" fill="#a78bfa" opacity="0.7"/><rect x="42" y="8" width="2" height="2" fill="#ffffff"/><rect x="55" y="14" width="3" height="3" fill="#38bdf8" opacity="0.9"/><rect x="64" y="4" width="2" height="2" fill="#f472b6"/><rect x="75" y="20" width="4" height="4" fill="#818cf8" opacity="0.6"/><rect x="82" y="8" width="2" height="2" fill="#ffffff"/><rect x="95" y="12" width="3" height="3" fill="#a78bfa" opacity="0.8"/><rect x="104" y="6" width="2" height="2" fill="#38bdf8"/><rect x="112" y="18" width="3" height="3" fill="#e879f9" opacity="0.7"/><rect x="10" y="22" width="6" height="3" fill="#7c3aed" opacity="0.3"/><rect x="50" y="26" width="8" height="4" fill="#7c3aed" opacity="0.25"/><rect x="88" y="24" width="7" height="3" fill="#6d28d9" opacity="0.3"/></svg>`),
+
+  space_mountains: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="240" height="30" shape-rendering="crispEdges"><rect width="240" height="30" fill="none"/><polygon points="0,30 40,2 80,30" fill="#1e1b4b"/><polyline points="32,10 40,2 48,10" fill="none" stroke="#00ffff" stroke-width="1"/><polygon points="60,30 110,0 160,30" fill="#1e0a4e"/><polyline points="100,12 110,0 120,12" fill="none" stroke="#a78bfa" stroke-width="1"/><polygon points="150,30 195,4 240,30" fill="#1e1b4b"/><polyline points="185,14 195,4 205,14" fill="none" stroke="#00ffff" stroke-width="1"/><rect x="38" y="6" width="4" height="2" fill="#e879f9" opacity="0.6"/><rect x="108" y="4" width="4" height="2" fill="#00ffff" opacity="0.5"/></svg>`),
+
+  space_hills: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20" shape-rendering="crispEdges"><rect width="200" height="20" fill="none"/><ellipse cx="50" cy="20" rx="70" ry="18" fill="#4c1d95"/><ellipse cx="155" cy="22" rx="75" ry="16" fill="#5b21b6"/><rect x="20" y="10" width="2" height="2" fill="#00ffff" opacity="0.5"/><rect x="90" y="8" width="2" height="2" fill="#a78bfa" opacity="0.7"/><rect x="140" y="12" width="2" height="2" fill="#00ffff" opacity="0.5"/></svg>`),
+
+  space_decor: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="45" shape-rendering="crispEdges"><rect width="320" height="45" fill="none"/><rect x="8" y="28" width="4" height="17" fill="#7c3aed"/><rect x="4" y="22" width="12" height="12" fill="#00ffff" opacity="0.5"/><rect x="6" y="16" width="8" height="8" fill="#06b6d4"/><rect x="8" y="10" width="4" height="8" fill="#00ffff"/><rect x="10" y="6" width="2" height="6" fill="#e0f2fe"/><rect x="38" y="25" width="6" height="20" fill="#6d28d9"/><rect x="32" y="16" width="18" height="14" fill="#7c3aed" opacity="0.7"/><rect x="34" y="10" width="14" height="10" fill="#8b5cf6"/><rect x="36" y="6" width="10" height="6" fill="#a78bfa"/><rect x="38" y="2" width="6" height="6" fill="#c4b5fd"/><rect x="60" y="30" width="8" height="15" fill="#374151"/><rect x="56" y="24" width="16" height="12" fill="#4c1d95" opacity="0.8"/><rect x="58" y="20" width="12" height="8" fill="#5b21b6"/><rect x="60" y="16" width="8" height="6" fill="#7c3aed" opacity="0.5"/><rect x="88" y="32" width="16" height="13" fill="#e879f9" opacity="0.6"/><rect x="90" y="34" width="12" height="8" fill="#f0abfc"/><rect x="92" y="36" width="8" height="4" fill="#ffffff" opacity="0.7"/><rect x="148" y="22" width="4" height="23" fill="#7c3aed"/><rect x="142" y="14" width="16" height="14" fill="#00ffff" opacity="0.5"/><rect x="144" y="8" width="12" height="10" fill="#06b6d4"/><rect x="146" y="4" width="8" height="6" fill="#00ffff"/><rect x="148" y="0" width="4" height="6" fill="#e0f2fe"/><rect x="168" y="28" width="6" height="17" fill="#6d28d9"/><rect x="162" y="18" width="18" height="16" fill="#7c3aed" opacity="0.8"/><rect x="164" y="12" width="14" height="10" fill="#8b5cf6"/><rect x="168" y="8" width="6" height="6" fill="#c4b5fd"/><rect x="200" y="26" width="8" height="19" fill="#374151"/><rect x="196" y="20" width="16" height="14" fill="#4c1d95"/><rect x="198" y="14" width="12" height="10" fill="#5b21b6"/><rect x="202" y="10" width="4" height="6" fill="#7c3aed" opacity="0.6"/><rect x="225" y="30" width="12" height="15" fill="#e879f9" opacity="0.7"/><rect x="227" y="32" width="8" height="10" fill="#f0abfc"/><rect x="229" y="34" width="4" height="6" fill="#ffffff" opacity="0.6"/><rect x="272" y="22" width="4" height="23" fill="#7c3aed"/><rect x="266" y="14" width="16" height="14" fill="#06b6d4" opacity="0.6"/><rect x="268" y="8" width="12" height="10" fill="#00ffff" opacity="0.7"/><rect x="270" y="2" width="8" height="8" fill="#e0f2fe"/><rect x="296" y="28" width="16" height="17" fill="#e879f9" opacity="0.6"/><rect x="298" y="30" width="12" height="10" fill="#f0abfc"/></svg>`),
+
+  space_ground: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="20" shape-rendering="crispEdges"><rect width="64" height="20" fill="#1e0940"/><rect width="64" height="5" fill="#2e1065"/><rect x="0" y="5" width="64" height="1" fill="#00ffff" opacity="0.6"/><rect x="4" y="1" width="2" height="3" fill="#00ffff" opacity="0.7"/><rect x="20" y="2" width="2" height="2" fill="#a78bfa"/><rect x="36" y="1" width="2" height="3" fill="#00ffff" opacity="0.7"/><rect x="52" y="2" width="2" height="2" fill="#a78bfa"/><rect x="8" y="10" width="6" height="4" fill="#ec4899" opacity="0.5"/><rect x="9" y="11" width="4" height="2" fill="#f0abfc"/><rect x="38" y="10" width="6" height="4" fill="#ec4899" opacity="0.5"/><rect x="39" y="11" width="4" height="2" fill="#f0abfc"/></svg>`),
+
+  // === CRITTER SVG INNER CONTENT ===
+  rabbit_inner: `<rect x="5" y="8" width="6" height="5" fill="#f1f5f9"/><rect x="4" y="9" width="8" height="4" fill="#e2e8f0"/><rect x="11" y="10" width="2" height="3" fill="#f1f5f9"/><rect x="12" y="11" width="1" height="2" fill="#fda4af"/><rect x="3" y="8" width="2" height="3" fill="#f1f5f9"/><rect x="6" y="6" width="4" height="4" fill="#f1f5f9"/><rect x="5" y="3" width="2" height="5" fill="#f1f5f9"/><rect x="9" y="3" width="2" height="5" fill="#f1f5f9"/><rect x="5" y="1" width="1" height="3" fill="#fda4af"/><rect x="10" y="1" width="1" height="3" fill="#fda4af"/><rect x="7" y="7" width="2" height="2" fill="#fda4af"/><rect x="13" y="12" width="2" height="2" fill="#f1f5f9"/><rect x="3" y="12" width="2" height="2" fill="#f1f5f9"/>`,
+  slime_inner: `<rect x="4" y="8" width="8" height="6" fill="#4ade80"/><rect x="3" y="9" width="10" height="4" fill="#22c55e"/><rect x="2" y="10" width="12" height="3" fill="#4ade80"/><rect x="3" y="13" width="10" height="2" fill="#16a34a"/><rect x="5" y="6" width="6" height="4" fill="#4ade80"/><rect x="6" y="4" width="4" height="4" fill="#86efac"/><rect x="5" y="7" width="2" height="2" fill="#14532d"/><rect x="9" y="7" width="2" height="2" fill="#14532d"/><rect x="6" y="8" width="1" height="1" fill="#ffffff"/><rect x="10" y="8" width="1" height="1" fill="#ffffff"/><rect x="7" y="10" width="2" height="1" fill="#ef4444"/><rect x="3" y="11" width="2" height="2" fill="#86efac"/><rect x="11" y="11" width="2" height="2" fill="#86efac"/>`,
+  wisp_inner: `<rect x="7" y="2" width="2" height="2" fill="#e0f2fe"/><rect x="6" y="4" width="4" height="4" fill="#38bdf8"/><rect x="5" y="5" width="6" height="4" fill="#7dd3fc"/><rect x="6" y="7" width="4" height="4" fill="#38bdf8"/><rect x="7" y="10" width="2" height="4" fill="#0ea5e9"/><rect x="3" y="6" width="2" height="2" fill="#7dd3fc" opacity="0.6"/><rect x="11" y="6" width="2" height="2" fill="#7dd3fc" opacity="0.6"/>`
+};
+
+let _pendingExpeditionContract = null;
+let _selectedExpeditionHeroes = [];
+
+function getExpeditionSuccessRate(contract, heroIds) {
+  const totalPower = heroIds.reduce((sum, hid) => {
+    const c = CHARACTERS.find(ch => ch.id === hid);
+    return sum + (c ? getBasePower(c) : 0);
+  }, 0);
+  const luckBuff = (state.expeditionBoosts && state.expeditionBoosts.luckBoostUntil > Date.now()) ? 1.15 : 1.0;
+  const powerBonus = Math.min(30, Math.floor(totalPower / 100));
+  return Math.min(95, Math.floor(contract.baseSuccessRate + powerBonus) * luckBuff);
+}
+
+function getEffectiveDuration(contract) {
+  const speedBuff = state.expeditionBoosts && state.expeditionBoosts.speedBoostUntil > Date.now();
+  return speedBuff ? Math.floor(contract.duration * 0.7) : contract.duration;
+}
+
+function renderExpeditions() {
+  const isCelestial = state.prestige > 0;
+
+  // === ACTIVE EXPEDITIONS ===
+  const activeList = document.getElementById('active-expeditions-list');
+  if (!activeList) return;
+
+  const currentAdvIds = new Set((state.activeAdventures || []).map(a => a.startTime));
+
+  // Remove cards for adventures no longer in state
+  activeList.querySelectorAll('.active-adventure-card').forEach(card => {
+    const ts = parseInt(card.dataset.advStart, 10);
+    if (!currentAdvIds.has(ts)) card.remove();
+  });
+
+  // Show empty state if no active
+  const existingEmpty = activeList.querySelector('.no-active-state');
+  if ((state.activeAdventures || []).length === 0) {
+    if (!existingEmpty) {
+      activeList.innerHTML = `<p class="no-active-state" style="color:var(--text-secondary); font-style:italic; text-align:center; width:100%;">No active expeditions. Send heroes on a contract below!</p>`;
+    }
+  } else {
+    if (existingEmpty) existingEmpty.remove();
+  }
+
+  // Update or create active adventure cards
+  (state.activeAdventures || []).forEach((adv) => {
+    const contract = EXPEDITION_CONTRACTS.find(c => c.id === adv.contractId);
+    if (!contract) return;
+
+    const now = Date.now();
+    const total = adv.endTime - adv.startTime;
+    const elapsed = Math.max(0, now - adv.startTime);
+    const progress = Math.min(1, elapsed / total);
+    const remaining = Math.max(0, Math.ceil((adv.endTime - now) / 1000));
+    const isComplete = adv.status === 'complete';
+
+    const heroPortraits = adv.heroIds.map(hid => {
+      const c = CHARACTERS.find(ch => ch.id === hid);
+      if (!c) return '';
+      return `<img src="${c.visual}" class="scenic-walking-hero" alt="${c.name}" title="${c.name}" style="filter:${c.cssFilter || 'none'};" />`;
+    }).join('');
+
+    // Position heroes 5%→78% of width as progress goes 0→1
+    const heroLeftPct = isComplete ? 78 : Math.min(78, 5 + 73 * progress);
+    const timerText = isComplete ? '✅ Arrived!' : `⏳ ${Math.floor(remaining / 60)}m ${remaining % 60}s`;
+    const barColor = isCelestial
+      ? 'linear-gradient(90deg, #7c3aed, #00ffff)'
+      : 'linear-gradient(90deg, #b8860b, #f59e0b)';
+
+    const layers = isCelestial ? [
+      `<div class="parallax-layer layer-sky" style="background-image:${PIXEL_SVGS.sky_nebula};"></div>`,
+      `<div class="parallax-layer layer-mountains" style="background-image:${PIXEL_SVGS.space_mountains};"></div>`,
+      `<div class="parallax-layer layer-hills" style="background-image:${PIXEL_SVGS.space_hills};"></div>`,
+      `<div class="parallax-layer layer-decor" style="background-image:${PIXEL_SVGS.space_decor};"></div>`,
+      `<div class="parallax-layer layer-ground" style="background-image:${PIXEL_SVGS.space_ground};"></div>`,
+    ] : [
+      `<div class="parallax-layer layer-sky" style="background-image:${PIXEL_SVGS.sky_clouds};"></div>`,
+      `<div class="parallax-layer layer-mountains" style="background-image:${PIXEL_SVGS.mountains};"></div>`,
+      `<div class="parallax-layer layer-hills" style="background-image:${PIXEL_SVGS.hills};"></div>`,
+      `<div class="parallax-layer layer-decor" style="background-image:${PIXEL_SVGS.forest_decor};"></div>`,
+      `<div class="parallax-layer layer-ground" style="background-image:${PIXEL_SVGS.ground};"></div>`,
+    ];
+
+    const critterA = isCelestial
+      ? `<div class="pixel-critter critter-wisp" style="animation-delay:-3s;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="20" height="20" shape-rendering="crispEdges">${PIXEL_SVGS.wisp_inner}</svg></div>`
+      : `<div class="pixel-critter critter-rabbit" style="animation-delay:-2s;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="18" height="18" shape-rendering="crispEdges">${PIXEL_SVGS.rabbit_inner}</svg></div>`;
+    const critterB = isCelestial
+      ? `<div class="pixel-critter critter-wisp" style="animation-delay:-7s;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges">${PIXEL_SVGS.wisp_inner}</svg></div>`
+      : `<div class="pixel-critter critter-slime" style="animation-delay:-5s;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="18" height="18" shape-rendering="crispEdges">${PIXEL_SVGS.slime_inner}</svg></div>`;
+
+    let card = activeList.querySelector(`.active-adventure-card[data-adv-start="${adv.startTime}"]`);
+
+    if (!card) {
+      // Build new card DOM — only done once per expedition
+      card = document.createElement('div');
+      card.className = 'active-adventure-card';
+      card.dataset.advStart = adv.startTime;
+      card.style.border = `2px solid ${contract.diffColor}40`;
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <strong style="font-family:'MedievalSharp',cursive; font-size:0.95rem;">${contract.emoji} ${contract.name}</strong>
+          <span style="background:${contract.diffColor}22; color:${contract.diffColor}; border:1px solid ${contract.diffColor}55; border-radius:4px; padding:0.1rem 0.5rem; font-size:0.75rem; font-weight:bold;">${contract.difficulty}</span>
+        </div>
+
+        <div class="expedition-scene-container">
+          ${layers.join('')}
+          <div class="critters-layer">${critterA}${critterB}</div>
+          <div class="scenic-explorers-container" style="left:${heroLeftPct}%;">${heroPortraits}</div>
+          <div class="scenic-destination${isComplete ? ' destination-reached' : ''}">${contract.destination}</div>
+        </div>
+
+        <div class="expedition-progress-container">
+          <div class="expedition-progress-bar" style="width:${Math.round(progress * 100)}%; background:${barColor}; transition:width 1s linear;"></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; margin-bottom:0.5rem;">
+          <span class="adv-timer">${timerText}</span>
+          <span style="color:var(--text-secondary);">${adv.heroIds.length} hero${adv.heroIds.length > 1 ? 'es' : ''}</span>
+        </div>
+
+        <button class="btn btn-primary claim-adv-btn" data-adv-start="${adv.startTime}" ${isComplete ? '' : 'disabled'} style="width:100%; margin:0;">
+          ${isComplete ? '🎁 Claim Rewards' : '⌛ In Progress...'}
+        </button>
+      `;
+      card.querySelector('.claim-adv-btn').addEventListener('click', () => {
+        const idx = (state.activeAdventures || []).findIndex(a => a.startTime === adv.startTime);
+        if (idx !== -1 && state.activeAdventures[idx].status === 'complete') {
+          claimExpeditionRewards(idx);
+        }
+      });
+      activeList.appendChild(card);
+    } else {
+      // Fine-grained DOM update — never recreate the card, never reset animations
+      const explorersEl = card.querySelector('.scenic-explorers-container');
+      if (explorersEl) explorersEl.style.left = heroLeftPct + '%';
+
+      const progressBar = card.querySelector('.expedition-progress-bar');
+      if (progressBar) progressBar.style.width = Math.round(progress * 100) + '%';
+
+      const timerEl = card.querySelector('.adv-timer');
+      if (timerEl) timerEl.textContent = timerText;
+
+      const destEl = card.querySelector('.scenic-destination');
+      if (destEl && isComplete && !destEl.classList.contains('destination-reached')) {
+        destEl.classList.add('destination-reached');
+      }
+
+      const claimBtn = card.querySelector('.claim-adv-btn');
+      if (claimBtn) {
+        claimBtn.disabled = !isComplete;
+        claimBtn.textContent = isComplete ? '🎁 Claim Rewards' : '⌛ In Progress...';
+      }
+    }
+  });
+
+  // === CONTRACTS LIST — only built once ===
+  const contractsList = document.getElementById('expedition-contracts-list');
+  if (!contractsList || contractsList.children.length > 0) return;
+
+  EXPEDITION_CONTRACTS.forEach(contract => {
+    const rewardPreview = {
+      tavern_supply: '~750 Gold, possible Luck Boost',
+      forest_hunt: '~3,000 Gold, possible Luck Boost',
+      bandit_raid: '~12,000 Gold, possible Haste Boost',
+      dragon_lair: '~45,000 Gold + Both Boosts'
+    }[contract.id] || 'Rewards';
+
+    const durMins = Math.floor(contract.duration / 60);
+    const durSecs = contract.duration % 60;
+    const durStr = durMins > 0 ? `${durMins}m${durSecs > 0 ? durSecs + 's' : ''}` : `${durSecs}s`;
+
+    const el = document.createElement('div');
+    el.className = 'contract-card';
+    el.style.border = `2px solid ${contract.diffColor}55`;
+    el.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <strong style="font-family:'MedievalSharp',cursive; font-size:1rem;">${contract.emoji} ${contract.name}</strong>
+        <span style="background:${contract.diffColor}22; color:${contract.diffColor}; border:1px solid ${contract.diffColor}55; border-radius:4px; padding:0.15rem 0.6rem; font-size:0.8rem; font-weight:bold;">${contract.difficulty}</span>
+      </div>
+      <p style="font-size:0.85rem; opacity:0.85; margin:0.3rem 0 0.6rem;">${contract.desc}</p>
+      <ul style="list-style:none; padding:0; margin:0 0 0.8rem; font-size:0.82rem; display:flex; flex-direction:column; gap:0.25rem;">
+        <li>⏱️ Duration: <strong>${durStr}</strong></li>
+        <li>👥 Max Heroes: <strong>${contract.maxHeroes}</strong></li>
+        <li>🎲 Base Success: <strong style="color:${contract.diffColor}">${contract.baseSuccessRate}%</strong></li>
+        <li>💰 Rewards: ${rewardPreview}</li>
+      </ul>
+      <button class="btn btn-primary send-expedition-btn" data-contract-id="${contract.id}" style="width:100%; margin:0;">⚔️ Send Expedition</button>
+    `;
+    el.querySelector('.send-expedition-btn').addEventListener('click', () => openExpeditionSelect(contract));
+    contractsList.appendChild(el);
+  });
+}
+
+function openExpeditionSelect(contract) {
+  _pendingExpeditionContract = contract;
+  _selectedExpeditionHeroes = [];
+
+  const mainView = document.getElementById('expeditions-main-view');
+  const selectView = document.getElementById('expeditions-select-view');
+  if (!mainView || !selectView) return;
+
+  mainView.style.display = 'none';
+  selectView.style.display = 'block';
+
+  // Fill contract info
+  const infoEl = document.getElementById('expeditions-select-contract-info');
+  const durMins = Math.floor(contract.duration / 60);
+  const durSecs = contract.duration % 60;
+  const durStr = durMins > 0 ? `${durMins}m${durSecs > 0 ? durSecs + 's' : ''}` : `${durSecs}s`;
+  infoEl.innerHTML = `
+    <strong style="font-size:1.1rem;">${contract.emoji} ${contract.name}</strong>
+    <p style="margin:0.4rem 0 0; font-size:0.9rem;">
+      <strong>Difficulty:</strong> <span style="color:${contract.diffColor}">${contract.difficulty}</span> &nbsp;|
+      <strong>Duration:</strong> ${durStr} &nbsp;|
+      <strong>Max Heroes:</strong> ${contract.maxHeroes}
+    </p>
+  `;
+
+  // Fill hero list
+  const heroGrid = document.getElementById('expedition-hero-select-list');
+  heroGrid.innerHTML = '';
+
+  const availableChars = Object.keys(state.army)
+    .filter(id => state.army[id] > 0 && !(state.adventuresLock[id] > 0))
+    .map(id => CHARACTERS.find(c => c.id === id))
+    .filter(Boolean)
+    .sort((a, b) => getBasePower(b) - getBasePower(a));
+
+  if (availableChars.length === 0) {
+    heroGrid.innerHTML = `<p style="text-align:center; color:var(--text-secondary);">No available heroes. Heroes on other expeditions cannot be used.</p>`;
+  } else {
+    availableChars.forEach(char => {
+      const el = document.createElement('label');
+      el.className = 'expedition-hero-card';
+      el.style.cssText = 'display:flex; align-items:center; gap:0.6rem; padding:0.6rem; cursor:pointer;';
+      el.innerHTML = `
+        <input type="checkbox" data-id="${char.id}" style="color:${char.color.startsWith('linear') ? '#b8860b' : char.color};" />
+        <img src="${char.visual}" alt="${char.name}" style="width:32px; height:32px; object-fit:contain; image-rendering:pixelated; filter:${char.cssFilter || 'none'}" />
+        <div>
+          <div style="font-size:0.85rem; font-weight:bold;">${char.name}</div>
+          <div style="font-size:0.75rem; opacity:0.8;">Power: ${getBasePower(char)}</div>
+        </div>
+      `;
+      el.querySelector('input[type=checkbox]').addEventListener('change', updateExpeditionSelectFooter);
+      heroGrid.appendChild(el);
+    });
+  }
+
+  updateExpeditionSelectFooter();
+
+  // Re-bind Back button
+  const cancelBtn = document.getElementById('expedition-cancel-select-btn');
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  newCancelBtn.addEventListener('click', () => {
+    selectView.style.display = 'none';
+    mainView.style.display = 'block';
+    const contractsList = document.getElementById('expedition-contracts-list');
+    if (contractsList) contractsList.innerHTML = '';
+    renderExpeditions();
+  });
+
+  // Re-bind Embark button
+  const embarkBtn = document.getElementById('expedition-embark-btn');
+  const newEmbarkBtn = embarkBtn.cloneNode(true);
+  embarkBtn.parentNode.replaceChild(newEmbarkBtn, embarkBtn);
+  newEmbarkBtn.addEventListener('click', () => {
+    if (_selectedExpeditionHeroes.length === 0) return;
+    launchExpedition(_pendingExpeditionContract, _selectedExpeditionHeroes);
+    selectView.style.display = 'none';
+    mainView.style.display = 'block';
+    const contractsList = document.getElementById('expedition-contracts-list');
+    if (contractsList) contractsList.innerHTML = '';
+    renderExpeditions();
+  });
+}
+
+function updateExpeditionSelectFooter() {
+  const contract = _pendingExpeditionContract;
+  if (!contract) return;
+  const checked = document.querySelectorAll('#expedition-hero-select-list input[type=checkbox]:checked');
+  _selectedExpeditionHeroes = [...checked].map(cb => cb.dataset.id);
+
+  // Enforce max heroes cap
+  if (_selectedExpeditionHeroes.length >= contract.maxHeroes) {
+    document.querySelectorAll('#expedition-hero-select-list input[type=checkbox]:not(:checked)').forEach(cb => cb.disabled = true);
+  } else {
+    document.querySelectorAll('#expedition-hero-select-list input[type=checkbox]').forEach(cb => cb.disabled = false);
+  }
+
+  const totalPower = _selectedExpeditionHeroes.reduce((sum, hid) => {
+    const c = CHARACTERS.find(ch => ch.id === hid);
+    return sum + (c ? getBasePower(c) : 0);
+  }, 0);
+  const successRate = getExpeditionSuccessRate(contract, _selectedExpeditionHeroes);
+
+  const totalPowerEl = document.getElementById('expedition-select-total-power');
+  const successRateEl = document.getElementById('expedition-select-success-rate');
+  const embarkBtn = document.getElementById('expedition-embark-btn');
+
+  if (totalPowerEl) totalPowerEl.textContent = totalPower;
+  if (successRateEl) {
+    successRateEl.textContent = `${Math.round(successRate)}%`;
+    successRateEl.style.color = successRate >= 80 ? '#22c55e' : successRate >= 60 ? '#fbbf24' : '#ef4444';
+  }
+  if (embarkBtn) embarkBtn.disabled = _selectedExpeditionHeroes.length === 0;
+}
+
+function launchExpedition(contract, heroIds) {
+  const now = Date.now();
+  const durationMs = getEffectiveDuration(contract) * 1000;
+  const adv = {
+    contractId: contract.id,
+    heroIds: [...heroIds],
+    startTime: now,
+    endTime: now + durationMs,
+    status: 'active'
+  };
+  if (!state.activeAdventures) state.activeAdventures = [];
+  state.activeAdventures.push(adv);
+
+  if (!state.adventuresLock) state.adventuresLock = {};
+  heroIds.forEach(hid => {
+    state.adventuresLock[hid] = (state.adventuresLock[hid] || 0) + 1;
+  });
+
+  saveState();
+  playSfx('upgrade');
+  notify(`${contract.emoji} Expedition launched: ${contract.name}!`, contract.diffColor);
+}
+
+function claimExpeditionRewards(index) {
+  const adv = state.activeAdventures[index];
+  if (!adv || adv.status !== 'complete') return;
+
+  const contract = EXPEDITION_CONTRACTS.find(c => c.id === adv.contractId);
+  if (!contract) return;
+
+  const successRate = getExpeditionSuccessRate(contract, adv.heroIds);
+  const success = Math.random() * 100 <= successRate;
+  let rewardsSummary = '';
+
+  if (success) {
+    const rewards = contract.rewards();
+    state.coins += rewards.coins;
+    rewardsSummary = `<span style="color:#22c55e; font-weight:bold; font-size:1.2rem;">SUCCESS!</span><br/>`;
+    rewardsSummary += `💰 Gold Earned: <span style="color:gold; font-weight:bold;">${rewards.coins.toLocaleString()}</span><br/><br/>`;
+
+    if (rewards.boosts && rewards.boosts.length > 0) {
+      if (!state.expeditionBoosts) state.expeditionBoosts = {};
+      rewards.boosts.forEach(boost => {
+        if (boost.type === 'luck') {
+          state.expeditionBoosts.luckBoostUntil = Date.now() + boost.duration;
+          rewardsSummary += `✨ <strong>${boost.label}</strong> activated!<br/>`;
+        } else if (boost.type === 'speed') {
+          state.expeditionBoosts.speedBoostUntil = Date.now() + boost.duration;
+          rewardsSummary += `⚡ <strong>${boost.label}</strong> activated!<br/>`;
+        }
+      });
+    }
+    playSfx('battleWin');
+  } else {
+    const pityCoins = Math.floor(contract.rewards().coins * 0.1);
+    state.coins += pityCoins;
+    rewardsSummary = `<span style="color:#ef4444; font-weight:bold; font-size:1.2rem;">FAILURE!</span><br/>`;
+    rewardsSummary += `<span style="font-size:1.1rem;">Pity payout: <span style="color:gold; font-weight:bold;">${pityCoins} Gold</span> for their efforts.</span><br/><br/>`;
+    rewardsSummary += `Your heroes return home tired but completely safe!`;
+    playSfx('battleLose');
+  }
+
+  // Release hero locks
+  adv.heroIds.forEach(hid => {
+    state.adventuresLock[hid] = Math.max(0, (state.adventuresLock[hid] || 1) - 1);
+  });
+
+  state.activeAdventures.splice(index, 1);
+  saveState();
+  updateStats();
+  renderArmy();
+
+  // Force contracts to rebuild on next renderExpeditions call
+  const contractsList = document.getElementById('expedition-contracts-list');
+  if (contractsList) contractsList.innerHTML = '';
+  renderExpeditions();
+
+  alertPopup('Expedition Report', rewardsSummary);
+}
+
+function alertPopup(title, contentHtml) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.zIndex = '2000';
+
+  const content = document.createElement('div');
+  content.className = `modal-content parchment-modal`;
+  content.style.maxWidth = '500px';
+  content.style.textAlign = 'center';
+  content.style.padding = '2.5rem';
+
+  content.innerHTML = `
+    <h2 style="font-family:'MedievalSharp',cursive; margin-bottom:1.5rem; text-shadow:none;">${title}</h2>
+    <div style="font-size:1.05rem; line-height:1.8; color:var(--text-dark); margin-bottom:2rem;">${contentHtml}</div>
+    <button class="btn btn-primary close-popup-btn" style="margin:0; padding:0.6rem 2.5rem;">Dismiss</button>
+  `;
+
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.remove(); playSfx('click'); };
+  content.querySelector('.close-popup-btn').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
+
+function tickExpeditions() {
+  // 1. Update active adventures
+  if (state.activeAdventures && state.activeAdventures.length > 0) {
+    const modal = document.getElementById('expeditions-modal');
+    const mainView = document.getElementById('expeditions-main-view');
+    if (modal && modal.style.display !== 'none' && mainView && mainView.style.display !== 'none') {
+      renderExpeditions();
+    }
+
+    // Check for newly-completed adventures
+    let saveNeeded = false;
+    (state.activeAdventures || []).forEach(adv => {
+      if (adv.status === 'active' && Date.now() >= adv.endTime) {
+        adv.status = 'complete';
+        saveNeeded = true;
+        const contract = EXPEDITION_CONTRACTS.find(c => c.id === adv.contractId);
+        if (contract) notify(`${contract.emoji} "${contract.name}" returned! Claim your rewards!`, '#22c55e');
+        playSfx('upgrade');
+      }
+    });
+
+    if (saveNeeded) {
+      saveState();
+      renderArmy();
+    }
+  }
+
+  // 2. Tick boost HUD timer badges
+  const hud = document.getElementById('boosts-hud');
+  if (!hud) return;
+
+  const now = Date.now();
+  const luckActive = state.expeditionBoosts && state.expeditionBoosts.luckBoostUntil > now;
+  const speedActive = state.expeditionBoosts && state.expeditionBoosts.speedBoostUntil > now;
+
+  if (luckActive || speedActive) {
+    hud.style.display = 'flex';
+    hud.innerHTML = '';
+
+    if (luckActive) {
+      const rem = Math.ceil((state.expeditionBoosts.luckBoostUntil - now) / 1000);
+      const m = Math.floor(rem / 60).toString().padStart(2, '0');
+      const s = (rem % 60).toString().padStart(2, '0');
+      hud.innerHTML += `
+        <div class="hud-boost-badge luck-boost">
+          <span style="display:inline-block; animation:anim-float 1.5s ease-in-out infinite;">✨</span>
+          <span><strong>Luck Boost (+1.0x)</strong>: <span style="font-family:monospace; font-weight:bold;">${m}:${s}</span></span>
+        </div>
+      `;
+    }
+
+    if (speedActive) {
+      const rem = Math.ceil((state.expeditionBoosts.speedBoostUntil - now) / 1000);
+      const m = Math.floor(rem / 60).toString().padStart(2, '0');
+      const s = (rem % 60).toString().padStart(2, '0');
+      hud.innerHTML += `
+        <div class="hud-boost-badge speed-boost">
+          <span style="display:inline-block; animation:anim-float 1.5s ease-in-out infinite;">⚡</span>
+          <span><strong>Haste Speed (30%)</strong>: <span style="font-family:monospace; font-weight:bold;">${m}:${s}</span></span>
+        </div>
+      `;
+    }
+  } else {
+    hud.style.display = 'none';
+  }
+}

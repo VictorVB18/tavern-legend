@@ -48,6 +48,7 @@
           <button id="open-rules-btn" class="btn btn-nav">Tome of Rules</button>
           <button id="open-relics-btn" class="btn btn-nav" style="color: #c084fc;">Artifacts</button>
           <button id="open-boss-btn" class="btn btn-nav btn-danger">The Dungeon</button>
+          <button id="open-expeditions-btn" class="btn btn-nav" style="color: #60a5fa;">Expeditions</button>
           <button id="rebirth-btn" class="btn btn-nav" style="display: none; background: linear-gradient(#b8860b, #8b5a2b); border-color: #f59e0b;">Prestige</button>
           <button id="toggle-music-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem;">Play Music</button>
           <button id="next-track-btn" class="btn btn-nav btn-secondary" style="font-size: 1rem; padding: 0.5rem 1rem; display: none;">Next Track</button>
@@ -70,6 +71,7 @@
             <div class="stat-value" id="prestige-display">0</div>
           </div>
         </div>
+        <div id="boosts-hud" class="boosts-hud" style="display: none; justify-content: center; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;"></div>
       </header>
 
       <main class="main-content">
@@ -287,6 +289,53 @@
           <button id="book-prev-btn" class="btn btn-secondary">Turn Left</button>
           <span id="book-page-number" style="font-family: 'Marcellus SC', serif; color: var(--text-secondary); font-size: 1.2rem;">Page 1</span>
           <button id="book-next-btn" class="btn btn-secondary">Turn Right</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="expeditions-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content parchment-modal" style="max-width: 850px; width: 95%; min-height: 450px; display: flex; flex-direction: column; padding: 2rem;">
+        <button class="close-modal" id="close-expeditions-btn">X</button>
+        <h2 id="expeditions-title" style="text-align: center; margin-bottom: 1rem;">Guild Expeditions</h2>
+        
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 0.5rem;">
+          <!-- Main View: Contracts & Active Adventures -->
+          <div id="expeditions-main-view">
+            <h3 style="margin-bottom: 0.8rem; font-family: 'MedievalSharp', cursive;">Active Expeditions</h3>
+            <div id="active-expeditions-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+              <!-- Active adventures injected here -->
+            </div>
+            
+            <h3 style="margin-bottom: 0.8rem; border-top: 2px solid var(--border-color); padding-top: 1.5rem; font-family: 'MedievalSharp', cursive;">Available Contracts</h3>
+            <div id="expedition-contracts-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem;">
+              <!-- Contracts injected here -->
+            </div>
+          </div>
+          
+          <!-- Select View: Hero Selection checklist -->
+          <div id="expeditions-select-view" style="display: none;">
+            <div id="expeditions-select-contract-info" style="background: rgba(139, 90, 43, 0.15); border: 2px solid var(--parchment-border); padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; text-align: center;">
+              <!-- Selected contract summary -->
+            </div>
+            
+            <h3 style="margin-bottom: 0.5rem; font-family: 'MedievalSharp', cursive;">Choose Your Explorers</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dark); margin-bottom: 1rem; opacity: 0.85;">Select heroes to send. Their combined Power increases success chances.</p>
+            
+            <div id="expedition-hero-select-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; max-height: 250px; overflow-y: auto; padding: 0.5rem; border: 2px solid var(--parchment-border); border-radius: 4px; background: rgba(0,0,0,0.05); margin-bottom: 1.5rem;">
+              <!-- Hero checklist cards injected here -->
+            </div>
+            
+            <div class="expedition-select-footer" style="display: flex; justify-content: space-between; align-items: center; background: rgba(139, 90, 43, 0.2); padding: 1rem; border-radius: 6px; border: 2px dashed var(--parchment-border); flex-wrap: wrap; gap: 1rem;">
+              <div>
+                <div style="font-family: 'MedievalSharp', cursive; font-size: 1.1rem; color: var(--text-dark);">Total Party Power: <span id="expedition-select-total-power" style="color: #b8860b; font-weight: bold;">0</span></div>
+                <div style="font-size: 0.95rem; font-weight: bold; margin-top: 4px; color: var(--text-dark);">Success Probability: <span id="expedition-select-success-rate" style="color: #22c55e;">80%</span></div>
+              </div>
+              <div style="display: flex; gap: 1rem;">
+                <button id="expedition-cancel-select-btn" class="btn btn-secondary" style="margin: 0;">Back</button>
+                <button id="expedition-embark-btn" class="btn btn-primary" style="margin: 0;" disabled>Embark</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

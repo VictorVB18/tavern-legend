@@ -1259,3 +1259,495 @@ body.celestial-mode #rebirth-btn:hover {
   box-shadow: 0 0 20px rgba(236, 72, 153, 0.8) !important;
 }
 
+/* --- GUILD EXPEDITIONS & HERO ADVENTURES STYLING --- */
+
+.contract-card, .active-adventure-card {
+  position: relative;
+  background: rgba(139, 90, 43, 0.05) !important;
+  border-radius: 8px !important;
+  padding: 1.2rem !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 0 15px rgba(139, 90, 43, 0.05);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.contract-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15), 0 0 15px rgba(139, 90, 43, 0.2), inset 0 0 20px rgba(139, 90, 43, 0.08);
+}
+
+/* Active Adventure Progress Bar Shimmer Effect */
+.expedition-progress-container {
+  background: rgba(0, 0, 0, 0.2) !important;
+  height: 8px !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.expedition-progress-bar {
+  height: 100% !important;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.expedition-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: bar-shine 2s infinite linear;
+}
+
+@keyframes bar-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Hero select checklists in prepare view */
+.expedition-hero-card {
+  border: 2px solid rgba(139, 90, 43, 0.2) !important;
+  border-left: 5px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.2s ease-in-out !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.expedition-hero-card:hover {
+  transform: translateY(-2px);
+  background: rgba(139, 90, 43, 0.08) !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.expedition-hero-card input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--parchment-border);
+  border-radius: 4px;
+  outline: none;
+  background: var(--parchment-bg);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expedition-hero-card input[type="checkbox"]:checked {
+  background: currentColor;
+  border-color: currentColor;
+}
+
+.expedition-hero-card input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+/* HUD Boost Badge Floating Styles */
+.hud-boost-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem !important;
+  border-radius: 6px !important;
+  font-size: 0.9rem !important;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+@keyframes anim-float {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+.luck-boost {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.2) !important;
+  color: #1e3a8a !important;
+}
+
+.luck-boost:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.45) !important;
+}
+
+.speed-boost {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 1.5px solid #f59e0b !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2) !important;
+  color: #78350f !important;
+}
+
+.speed-boost:hover {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.45) !important;
+}
+
+/* --- CELESTIAL MODE OVERRIDES FOR EXPEDITIONS --- */
+
+body.celestial-mode .contract-card,
+body.celestial-mode .active-adventure-card {
+  background: rgba(15, 8, 38, 0.7) !important;
+  border-color: rgba(0, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(124, 58, 237, 0.15) !important;
+  color: #f0f9ff !important;
+}
+
+body.celestial-mode .contract-card:hover {
+  border-color: #00ffff !important;
+  box-shadow: 0 8px 30px rgba(0, 255, 255, 0.2), 0 0 15px rgba(124, 58, 237, 0.2), inset 0 0 20px rgba(0, 255, 255, 0.1) !important;
+}
+
+body.celestial-mode .contract-card ul li {
+  color: #cbd5e1 !important;
+}
+
+body.celestial-mode .active-adventure-card span {
+  color: #cbd5e1 !important;
+}
+
+body.celestial-mode .active-adventure-card strong {
+  text-shadow: 0 0 8px currentColor;
+}
+
+body.celestial-mode .expedition-hero-card {
+  border-color: rgba(124, 58, 237, 0.3) !important;
+  background: rgba(10, 4, 26, 0.6) !important;
+  color: #f0f9ff !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+body.celestial-mode .expedition-hero-card:hover {
+  border-color: #00ffff !important;
+  background: rgba(124, 58, 237, 0.2) !important;
+  box-shadow: 0 4px 15px rgba(0, 255, 255, 0.15);
+}
+
+body.celestial-mode .expedition-hero-card input[type="checkbox"] {
+  border-color: #7c3aed;
+  background: #0d0724;
+}
+
+body.celestial-mode .expedition-hero-card input[type="checkbox"]:checked {
+  background: currentColor;
+  border-color: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+body.celestial-mode #expeditions-select-contract-info {
+  background: rgba(124, 58, 237, 0.15) !important;
+  border-color: #7c3aed !important;
+  color: #f0f9ff !important;
+}
+
+body.celestial-mode #expeditions-select-contract-info p {
+  color: #cbd5e1 !important;
+}
+
+body.celestial-mode #expeditions-select-contract-info p strong {
+  color: #ffffff !important;
+}
+
+body.celestial-mode #expeditions-select-view p {
+  color: #94a3b8 !important;
+}
+
+body.celestial-mode #expedition-hero-select-list {
+  background: rgba(10, 4, 24, 0.5) !important;
+  border-color: #7c3aed !important;
+}
+
+body.celestial-mode .expedition-select-footer {
+  background: rgba(124, 58, 237, 0.15) !important;
+  border-color: #00ffff !important;
+  color: #f0f9ff !important;
+}
+
+body.celestial-mode #expeditions-modal h2,
+body.celestial-mode #expeditions-modal h3,
+body.celestial-mode #expeditions-modal p {
+  color: #f0f9ff !important;
+}
+
+body.celestial-mode .expedition-select-footer div {
+  color: #cbd5e1 !important;
+}
+
+body.celestial-mode #expedition-select-total-power {
+  color: #00ffff !important;
+}
+
+body.celestial-mode .luck-boost {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border: 1.5px solid #60a5fa !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+body.celestial-mode .speed-boost {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border: 1.5px solid #fbbf24 !important;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.35) !important;
+  color: #fde047 !important;
+}
+
+/* --- ANIMATED SCENIC TREK OVERHAUL --- */
+
+.expedition-scene-container {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  border-radius: 8px;
+  border: 2px solid rgba(139, 90, 43, 0.3);
+  background: linear-gradient(180deg, #93c5fd 0%, #dbeafe 65%, #15803d 65%, #14532d 100%);
+  overflow: hidden;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.25);
+  margin: 0.8rem 0;
+  image-rendering: pixelated;
+}
+
+/* Parallax Layer base */
+.parallax-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+/* 1. Sky & Clouds Layer */
+.layer-sky {
+  z-index: 1;
+  background-size: 120px 40px;
+  background-position: left 5px;
+  animation: parallax-scroll 480s linear infinite;
+  opacity: 0.65;
+}
+
+/* 2. Far Mountain Layer */
+.layer-mountains {
+  z-index: 2;
+  background-size: 240px 30px;
+  background-position: left bottom 20px; /* Sits right above hills */
+  animation: parallax-scroll 300s linear infinite;
+}
+
+/* 3. Mid Hills Layer */
+.layer-hills {
+  z-index: 3;
+  background-size: 200px 20px;
+  background-position: left bottom 17px; /* Sits above ground */
+  animation: parallax-scroll 180s linear infinite;
+}
+
+/* 4. Forest Decor Layer (Trees, Bushes, Rocks passing by) */
+.layer-decor {
+  z-index: 4;
+  background-size: 320px 45px;
+  background-position: left bottom 15px;
+  animation: parallax-scroll 100s linear infinite;
+}
+
+/* 5. Ground Path Layer (Fast) */
+.layer-ground {
+  z-index: 5;
+  height: 20px;
+  top: auto;
+  bottom: 0;
+  background-size: 64px 20px;
+  animation: parallax-scroll 48s linear infinite;
+}
+
+/* Infinite Horizontal Parallax Keyframes (Perfect 4800px LCM Tiling) */
+@keyframes parallax-scroll {
+  0% { background-position-x: 0px; }
+  100% { background-position-x: -4800px; }
+}
+
+/* Critter / Animal Layer */
+.critters-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  height: 30px;
+  z-index: 6;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pixel-critter {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  bottom: 0;
+  image-rendering: pixelated;
+  transform-origin: bottom center;
+}
+
+/* Rabbit Hopping animation */
+.critter-rabbit {
+  animation: rabbit-run 12s linear infinite;
+}
+
+@keyframes rabbit-run {
+  0% { left: 110%; transform: scaleX(1); }
+  45% { transform: scaleX(1); }
+  50% { left: -30px; transform: scaleX(1); }
+  51% { left: -30px; transform: scaleX(-1); }
+  95% { transform: scaleX(-1); }
+  100% { left: 110%; transform: scaleX(-1); }
+}
+
+.critter-rabbit svg {
+  animation: rabbit-hop 0.8s infinite ease-in-out;
+}
+
+/* Classical Squash & Stretch bounce physics for hopping rabbit */
+@keyframes rabbit-hop {
+  0% { transform: translateY(0) scale(1); }
+  12% { transform: translateY(0) scaleY(0.75) scaleX(1.25); } /* Preparing for jump */
+  28% { transform: translateY(-4px) scaleY(1.15) scaleX(0.85); } /* Takeoff stretch */
+  50% { transform: translateY(-12px) scale(1); } /* Apex */
+  72% { transform: translateY(-4px) scaleY(1.15) scaleX(0.85); } /* Falling stretch */
+  88% { transform: translateY(0) scaleY(0.7) scaleX(1.3); } /* Landing splash */
+  100% { transform: translateY(0) scale(1); } /* Recovery */
+}
+
+/* Slime Bouncing animation */
+.critter-slime {
+  animation: slime-run 15s linear infinite;
+}
+
+@keyframes slime-run {
+  0% { left: -40px; transform: scaleX(-1); }
+  100% { left: 110%; transform: scaleX(-1); }
+}
+
+.critter-slime svg {
+  animation: slime-bounce 1.0s infinite ease-in-out;
+}
+
+/* Juicy Squash & Stretch bounce physics for slime */
+@keyframes slime-bounce {
+  0% { transform: translateY(0) scale(1); }
+  15% { transform: translateY(0) scaleY(0.65) scaleX(1.35); } /* Compression */
+  45% { transform: translateY(-7px) scaleY(1.2) scaleX(0.8); } /* Leap stretch */
+  55% { transform: translateY(-7px) scaleY(1.05) scaleX(0.95); } /* Peak float */
+  80% { transform: translateY(0) scaleY(0.6) scaleX(1.4); } /* Landing splash */
+  100% { transform: translateY(0) scale(1); } /* Recovery */
+}
+
+/* Twinkling Star / Wisp floating animation */
+.critter-wisp {
+  animation: wisp-drift 10s linear infinite;
+  bottom: 15px;
+}
+
+@keyframes wisp-drift {
+  0% { left: 110%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: -40px; opacity: 0; }
+}
+
+.critter-wisp svg {
+  animation: wisp-float 1.8s infinite ease-in-out;
+}
+
+@keyframes wisp-float {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(180deg) scale(1.1); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* Destination Target / Flag */
+.scenic-destination {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font-size: 1.7rem;
+  z-index: 7;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  animation: destination-breathe 2s infinite ease-in-out;
+  transform-origin: bottom center;
+}
+
+.scenic-destination.destination-reached {
+  animation: destination-bounce 1s infinite alternate ease-in-out !important;
+}
+
+@keyframes destination-breathe {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1) translateY(-2px); }
+  100% { transform: scale(1); }
+}
+
+@keyframes destination-bounce {
+  0% { transform: translateY(0) scale(1.15) rotate(-5deg); }
+  100% { transform: translateY(-8px) scale(1.2) rotate(5deg); }
+}
+
+/* Dynamic Walking Explorer Squad (Continuously gliding left-to-right) */
+.scenic-explorers-container {
+  position: absolute;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  transition: left 1s linear; /* Completely smooth continuous slide */
+}
+
+.scenic-walking-hero {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 2px solid #5e3a24;
+  background: rgba(30, 20, 10, 0.6);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 0 4px #000;
+  animation: sprite-walk 0.6s infinite ease-in-out;
+  transform-origin: bottom center;
+  image-rendering: pixelated;
+}
+
+@keyframes sprite-walk {
+  0% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-4px) rotate(4deg) scaleY(0.95); }
+  100% { transform: translateY(0) rotate(-4deg); }
+}
+
+/* --- CELESTIAL ENVIRONMENT OVERRIDES FOR SCENIC TRACK --- */
+
+body.celestial-mode .expedition-scene-container {
+  background: linear-gradient(180deg, #09041a 0%, #150b38 65%, #2e1065 65%, #1e0940 100%) !important;
+  border-color: rgba(0, 255, 255, 0.4) !important;
+  box-shadow: inset 0 2px 15px rgba(0, 255, 255, 0.25) !important;
+}
+
+body.celestial-mode .scenic-walking-hero {
+  border-color: #00ffff !important;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 5px rgba(0, 255, 255, 0.3) !important;
+}
+
+
+
