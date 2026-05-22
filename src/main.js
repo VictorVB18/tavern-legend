@@ -206,6 +206,7 @@ const getInitialState = () => ({
   totalRolls: 0,
   army: {}, // id: count
   unlocked: {}, // id: true (for Index)
+  unlockedAt: {}, // id: timestamp
   upgrades: { luck: 0, speed: 0, bargain: 0, tactics: 0, wealth: 0, auto: 0, auto_sell_module: 0, auto_upgrade_module: 0 },
   autoRollActive: false,
   autoUpgradeActive: false,
@@ -453,6 +454,10 @@ function performRoll() {
   state.totalRolls++;
   const char = rollCharacter();
   
+  if (!state.unlocked[char.id]) {
+    state.unlockedAt = state.unlockedAt || {};
+    state.unlockedAt[char.id] = Date.now();
+  }
   state.unlocked[char.id] = true; // Unlock in Index
   
   let armyChanged = false;
@@ -472,21 +477,23 @@ function performRoll() {
   const cooldownMs = getCooldownMs();
   
   if (!document.hidden) {
-    updateDisplay(char);
-    
-    // Trigger punchy card roll flash shake impact animation (skip if reduceMotion is enabled)
-    const displayCard = document.getElementById('current-character-display');
-    if (displayCard) {
-      displayCard.classList.remove('roll-impact');
-      if (!state.reduceMotion) {
-        void displayCard.offsetWidth; // Force Reflow
-        displayCard.classList.add('roll-impact');
+    if (!isAnyModalOpen()) {
+      updateDisplay(char);
+      
+      // Trigger punchy card roll flash shake impact animation (skip if reduceMotion is enabled)
+      const displayCard = document.getElementById('current-character-display');
+      if (displayCard) {
+        displayCard.classList.remove('roll-impact');
+        if (!state.reduceMotion) {
+          void displayCard.offsetWidth; // Force Reflow
+          displayCard.classList.add('roll-impact');
+        }
       }
-    }
-    
-    updateStats();
-    if (armyChanged) {
-      renderArmy();
+      
+      updateStats();
+      if (armyChanged) {
+        renderArmy();
+      }
     }
     
     if (char.chance >= 2000) {
@@ -606,11 +613,25 @@ const questsModal = document.getElementById('quests-modal');
 
 const relicsModal = document.getElementById('relics-modal');
 
+function isAnyModalOpen() {
+  if (document.getElementById('hero-detail-overlay')) return true;
+  const modals = [rulesModal, bossModal, indexModal, questsModal, relicsModal, document.getElementById('expeditions-modal')];
+  for (let m of modals) {
+    if (m && m.style.display === 'flex') return true;
+  }
+  return false;
+}
+
+function refreshMainUI() {
+  renderArmy();
+  updateStats();
+}
+
 document.getElementById('open-rules-btn').addEventListener('click', () => {
   populateRarityTable();
   rulesModal.style.display = 'flex';
 });
-document.getElementById('close-rules-btn').addEventListener('click', () => rulesModal.style.display = 'none');
+document.getElementById('close-rules-btn').addEventListener('click', () => { rulesModal.style.display = 'none'; refreshMainUI(); });
 
 document.getElementById('open-boss-btn').addEventListener('click', () => {
   selectedParty = [];
@@ -618,25 +639,25 @@ document.getElementById('open-boss-btn').addEventListener('click', () => {
   document.getElementById('battle-log').style.display = 'none';
   bossModal.style.display = 'flex';
 });
-document.getElementById('close-boss-btn').addEventListener('click', () => bossModal.style.display = 'none');
+document.getElementById('close-boss-btn').addEventListener('click', () => { bossModal.style.display = 'none'; refreshMainUI(); });
 
 document.getElementById('open-index-btn').addEventListener('click', () => {
   renderIndex();
   indexModal.style.display = 'flex';
 });
-document.getElementById('close-index-btn').addEventListener('click', () => indexModal.style.display = 'none');
+document.getElementById('close-index-btn').addEventListener('click', () => { indexModal.style.display = 'none'; refreshMainUI(); });
 
 document.getElementById('open-quests-btn').addEventListener('click', () => {
   renderQuests();
   questsModal.style.display = 'flex';
 });
-document.getElementById('close-quests-btn').addEventListener('click', () => questsModal.style.display = 'none');
+document.getElementById('close-quests-btn').addEventListener('click', () => { questsModal.style.display = 'none'; refreshMainUI(); });
 
 document.getElementById('open-relics-btn').addEventListener('click', () => {
   renderRelics();
   relicsModal.style.display = 'flex';
 });
-document.getElementById('close-relics-btn').addEventListener('click', () => relicsModal.style.display = 'none');
+document.getElementById('close-relics-btn').addEventListener('click', () => { relicsModal.style.display = 'none'; refreshMainUI(); });
 
 // --- EXPEDITION MODAL ---
 const expeditionsModal = document.getElementById('expeditions-modal');
@@ -644,9 +665,7 @@ document.getElementById('open-expeditions-btn').addEventListener('click', () => 
   renderExpeditions();
   expeditionsModal.style.display = 'flex';
 });
-document.getElementById('close-expeditions-btn').addEventListener('click', () => {
-  expeditionsModal.style.display = 'none';
-});
+document.getElementById('close-expeditions-btn').addEventListener('click', () => { expeditionsModal.style.display = 'none'; refreshMainUI(); });
 
 document.getElementById('rebirth-btn').addEventListener('click', () => {
   if (confirm("Are you sure you want to Prestige? You will lose all Gold, Upgrades, Vanguard, and Dungeon Progress. But you will earn a permanent global 2x multiplier!")) {
@@ -843,12 +862,162 @@ function renderIndex() {
     }
     
     el.innerHTML = `
-      <img src="${char.visual}" alt="${char.name}" style="filter: ${imgFilter};" />
+      <img src="${char.visual}" alt="${char.name}" style="mix-blend-mode: multiply; filter: ${imgFilter};" />
       <span class="index-name">${isUnlocked ? char.name : '???'}</span>
       <span style="font-size: 0.8rem; font-family: 'Marcellus SC', serif; color: #5c4033;">${isUnlocked ? char.rarity : 'Unknown Rarity'}</span>
     `;
+
+    if (isUnlocked) {
+      el.style.cursor = 'pointer';
+      el.title = `View ${char.name}`;
+      el.addEventListener('click', () => showHeroDetail(char));
+    } else {
+      el.style.cursor = 'not-allowed';
+    }
+
     grid.appendChild(el);
   });
+}
+
+// Helper functions for Lore and Elements
+function getHeroElement(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); }
+  const elements = [
+    { name: 'Fire', icon: '🔥', color: '#ef4444' },
+    { name: 'Water', icon: '💧', color: '#3b82f6' },
+    { name: 'Earth', icon: '⛰️', color: '#22c55e' },
+    { name: 'Light', icon: '☀️', color: '#fbbf24' },
+    { name: 'Dark', icon: '🌑', color: '#6b7280' },
+    { name: 'Void', icon: '🌌', color: '#a78bfa' }
+  ];
+  return elements[Math.abs(hash) % elements.length];
+}
+
+function getHeroLore(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); }
+  const prefix = ["Forged in", "Summoned from", "Banished to", "Awakened in", "A wandering soul from", "A legendary champion of", "Born under the skies of"];
+  const suffix = ["the Abyssal Chasm.", "the Eternal Spire.", "the Shattered Peaks.", "the Crimson Wastes.", "the Crystal Forest.", "the Forgotten Kingdom.", "the Celestial Gate."];
+  const title = ["Seeking redemption.", "Bound by a blood oath.", "Driven by an endless hunger.", "Awaiting the final battle.", "Lost to time.", "Searching for a worthy master.", "Harboring a dark secret."];
+  
+  return `${prefix[Math.abs(hash) % prefix.length]} ${suffix[Math.abs(hash >> 2) % suffix.length]} ${title[Math.abs(hash >> 4) % title.length]}`;
+}
+
+function showHeroDetail(char) {
+  document.getElementById('hero-detail-overlay')?.remove();
+
+  const inArmy = state.army[char.id] || 0;
+  const ascLvl = state.ascensions[char.id] || 0;
+  const power = getBasePower(char);
+  const hp = getBaseHp(char);
+  const accentColor = char.color.startsWith('linear') ? '#b8860b' : char.color;
+
+  const element = getHeroElement(char.name);
+  const lore = getHeroLore(char.name);
+  const discDate = state.unlockedAt && state.unlockedAt[char.id] ? new Date(state.unlockedAt[char.id]).toLocaleDateString() : 'Unknown';
+
+  // Determine Combat Role based on stat ratio
+  let role = "Fighter";
+  let roleIcon = "⚔️";
+  if (hp > power * 3) { role = "Tank"; roleIcon = "🛡️"; }
+  else if (power > hp * 0.8) { role = "Glass Cannon"; roleIcon = "🔥"; }
+  else if (hp > power * 1.5) { role = "Bruiser"; roleIcon = "🪓"; }
+
+  // Unique visual styling per rarity
+  const rarityStyles = {
+    Common: { bg: 'rgba(0,0,0,0.1)', border: '4px solid #8b5a2b', shadow: 'inset 0 0 10px rgba(0,0,0,0.5)' },
+    Uncommon: { bg: 'radial-gradient(circle, rgba(74,222,128,0.2) 0%, rgba(0,0,0,0.15) 70%)', border: '4px ridge #4ade80', shadow: 'inset 0 0 15px rgba(74,222,128,0.3)' },
+    Rare: { bg: 'radial-gradient(circle, rgba(96,165,250,0.25) 0%, rgba(0,0,0,0.2) 70%)', border: '4px double #60a5fa', shadow: 'inset 0 0 20px rgba(96,165,250,0.4)' },
+    Epic: { bg: 'radial-gradient(circle, rgba(192,132,252,0.3) 0%, rgba(0,0,0,0.25) 80%)', border: '5px groove #c084fc', shadow: 'inset 0 0 25px rgba(192,132,252,0.5), 0 0 10px rgba(192,132,252,0.4)' },
+    Legendary: { bg: 'radial-gradient(circle, rgba(251,191,36,0.35) 0%, rgba(0,0,0,0.3) 80%)', border: '6px double #fbbf24', shadow: 'inset 0 0 30px rgba(251,191,36,0.6), 0 0 15px rgba(251,191,36,0.5)' },
+    Mythic: { bg: 'radial-gradient(circle, rgba(167,139,250,0.4) 0%, rgba(0,0,0,0.4) 90%)', border: '6px ridge #a78bfa', shadow: 'inset 0 0 40px rgba(167,139,250,0.7), 0 0 20px rgba(167,139,250,0.6)' },
+    Divine: { bg: 'radial-gradient(circle, rgba(244,114,182,0.45) 0%, rgba(255,255,255,0.1) 100%)', border: '6px solid #f472b6', shadow: 'inset 0 0 50px rgba(244,114,182,0.8), 0 0 25px rgba(244,114,182,0.7)' },
+    Eldritch: { bg: 'radial-gradient(circle, rgba(0,255,255,0.3) 0%, rgba(0,0,0,0.6) 100%)', border: '6px dashed #00ffff', shadow: 'inset 0 0 50px rgba(0,255,255,0.8), 0 0 30px rgba(0,255,255,0.8)' }
+  };
+  const rStyle = rarityStyles[char.rarity] || rarityStyles.Common;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'hero-detail-overlay';
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = 'z-index: 3000; display: flex; animation: fadeIn 0.2s ease;';
+
+  overlay.innerHTML = `
+    <div class="modal-content parchment-modal" style="position:relative; max-width:480px; width:95%; padding:2.5rem 2rem 1.5rem; text-align:center; box-shadow:0 25px 75px rgba(0,0,0,0.9);">
+      
+      <!-- Decorative Corners -->
+      <div style="position:absolute; top:8px; left:8px; width:20px; height:20px; border-top:3px solid var(--parchment-border); border-left:3px solid var(--parchment-border);"></div>
+      <div style="position:absolute; top:8px; right:8px; width:20px; height:20px; border-top:3px solid var(--parchment-border); border-right:3px solid var(--parchment-border);"></div>
+      <div style="position:absolute; bottom:8px; left:8px; width:20px; height:20px; border-bottom:3px solid var(--parchment-border); border-left:3px solid var(--parchment-border);"></div>
+      <div style="position:absolute; bottom:8px; right:8px; width:20px; height:20px; border-bottom:3px solid var(--parchment-border); border-right:3px solid var(--parchment-border);"></div>
+
+      <button id="hero-detail-close" class="btn btn-secondary" style="position:absolute; top:1.2rem; right:1.2rem; padding:0.2rem 0.6rem; min-width:auto; margin:0; z-index:10;">✕</button>
+
+      <!-- Element Badge -->
+      <div style="position:absolute; top:2.5rem; left:2rem; font-size:1.5rem; background:rgba(0,0,0,0.3); border:2px solid ${element.color}; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px ${element.color};" title="${element.name} Element">
+        ${element.icon}
+      </div>
+
+      <!-- Hero Portrait Container -->
+      <div style="width:220px; height:220px; margin:0 auto 1.2rem; border:${rStyle.border}; border-radius:12px; display:flex; align-items:center; justify-content:center; background:${rStyle.bg}; box-shadow:${rStyle.shadow}; overflow:hidden; position:relative;">
+        <img src="${char.visual}" alt="${char.name}" style="width:180px; height:180px; object-fit:contain; image-rendering:pixelated; mix-blend-mode:multiply; filter:${char.cssFilter||'none'}; animation:${char.anim} 2s ease-in-out infinite;" />
+      </div>
+
+      <h2 style="margin:0 0 0.3rem; font-family:'MedievalSharp',cursive; font-size:2rem; ${char.color.startsWith('linear')?`background:${char.color};-webkit-background-clip:text;-webkit-text-fill-color:transparent;`:`color:${accentColor};`} text-shadow:1px 1px 2px rgba(0,0,0,0.3);">${char.name}</h2>
+
+      <!-- Rarity Ribbon -->
+      <div style="margin-bottom:1.2rem; position:relative;">
+        <div style="display:inline-block; background:var(--parchment-border); color:var(--parchment-bg); padding:0.3rem 2rem; font-size:1.1rem; font-family:'MedievalSharp',cursive; font-weight:bold; position:relative; box-shadow:0 4px 6px rgba(0,0,0,0.3);">
+          ${char.rarity}
+          <!-- Ribbon ends -->
+          <div style="position:absolute; top:0; left:-15px; width:0; height:0; border-top: 17px solid transparent; border-bottom: 17px solid transparent; border-right: 15px solid var(--parchment-border);"></div>
+          <div style="position:absolute; top:0; right:-15px; width:0; height:0; border-top: 17px solid transparent; border-bottom: 17px solid transparent; border-left: 15px solid var(--parchment-border);"></div>
+        </div>
+      </div>
+
+      <!-- Flavor Text Lore -->
+      <p style="font-family:'Marcellus SC',serif; font-size:0.95rem; font-style:italic; color:var(--text-dark); margin:0 0 1.2rem; padding:0 1.5rem; opacity:0.9; line-height:1.4;">
+        "${lore}"
+      </p>
+
+      <!-- Stats Grid -->
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem; margin-bottom:1rem;">
+        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:4px; padding:0.8rem 0.5rem; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:1.4rem; margin-bottom:0.2rem;">❤️</div>
+          <div style="color:var(--text-dark); font-size:0.75rem; font-family:'Marcellus SC',serif; opacity:0.8;">VITALITY</div>
+          <div style="color:#ef4444; font-size:1.2rem; font-weight:bold;">${hp.toLocaleString()}</div>
+        </div>
+        
+        <div style="background:rgba(139,90,43,0.1); border:1px solid var(--parchment-border); border-radius:4px; padding:0.8rem 0.5rem; display:flex; flex-direction:column; justify-content:center; box-shadow:inset 0 0 10px rgba(0,0,0,0.05);">
+          <div style="font-size:1.4rem; margin-bottom:0.2rem;">${roleIcon}</div>
+          <div style="color:var(--text-dark); font-size:0.75rem; font-family:'Marcellus SC',serif; opacity:0.8;">ROLE</div>
+          <div style="color:var(--text-dark); font-size:1.1rem; font-family:'MedievalSharp',cursive;">${role}</div>
+        </div>
+
+        <div style="background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.3); border-radius:4px; padding:0.8rem 0.5rem; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:1.4rem; margin-bottom:0.2rem;">⚔️</div>
+          <div style="color:var(--text-dark); font-size:0.75rem; font-family:'Marcellus SC',serif; opacity:0.8;">STRENGTH</div>
+          <div style="color:#d97706; font-size:1.2rem; font-weight:bold;">${power.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div style="background:rgba(139,90,43,0.15); border:2px dashed var(--parchment-border); border-radius:4px; padding:0.6rem; font-size:0.95rem; color:var(--text-dark); font-family:'Marcellus SC',serif; margin-bottom:0.6rem;">
+        ${inArmy>0?`📦 In Vanguard: <strong style="font-size:1.1rem;">${inArmy}</strong> &nbsp;|&nbsp; 💰 Value: <strong style="color:#b8860b; font-size:1.1rem;">${Math.floor(char.value*getSellMultiplier()).toLocaleString()}G</strong>`:'<span style="opacity:0.6; font-style:italic;">Not currently in your Vanguard</span>'}
+        ${ascLvl>0?`<div style="color:#16a34a; font-size:0.85rem; font-weight:bold; margin-top:0.4rem; border-top:1px solid rgba(0,0,0,0.1); padding-top:0.4rem;">✨ Ascended +${ascLvl} ✨</div>`:''}
+      </div>
+
+      <!-- Discovery Date & Chance -->
+      <div style="font-size:0.75rem; color:var(--text-dark); opacity:0.7; font-family:'Marcellus SC',serif; display:flex; justify-content:space-between; padding:0 0.5rem;">
+        <span>Discovered: ${discDate}</span>
+        <span>Pull Rate: 1 in ${char.chance.toLocaleString()}</span>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  const close = () => { overlay.remove(); playSfx('click'); };
+  document.getElementById('hero-detail-close').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 }
 
 let currentQuestPage = 0;
@@ -1068,7 +1237,7 @@ function renderArmy() {
     el.innerHTML = `
       <div class="army-info-container">
         <div class="army-visual">
-          <img src="${char.visual}" alt="${char.name}" style="filter: ${char.cssFilter || 'none'};" />
+          <img src="${char.visual}" alt="${char.name}" style="mix-blend-mode: multiply; filter: ${char.cssFilter || 'none'};" />
         </div>
         <div class="army-info">
           <span class="army-name" style="color: ${char.color.startsWith('linear') ? '#b8860b' : char.color}">${char.name}</span>
