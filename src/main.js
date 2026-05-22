@@ -69,7 +69,7 @@ const CHARACTERS = [
 
 const UPGRADES = [
   { id: 'luck', name: "Loaded Dice", desc: "Increases fate multiplier by +0.2x", baseCost: 50, costMult: 1.5 },
-  { id: 'speed', name: "Swift Ritual", desc: "Reduces summon cooldown by 10%", baseCost: 100, costMult: 1.6 },
+  { id: 'speed', name: "Swift Ritual", desc: "Reduces summon cooldown by 10%", baseCost: 100, costMult: 1.6, maxLevel: 20 },
   { id: 'bargain', name: "Merchant's Guild", desc: "Increases gold from dismissing by +10%", baseCost: 200, costMult: 1.8 },
   { id: 'tactics', name: "War Tactics", desc: "Increases party power in boss fights by +5%", baseCost: 500, costMult: 2.0 },
   { id: 'wealth', name: "Tavern Income", desc: "Passively generates +1 Gold every second", baseCost: 300, costMult: 1.5 },
